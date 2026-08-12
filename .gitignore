@@ -1,0 +1,94 @@
+# ---------------------------------------------------------------------------
+# Pi <-> dbt DFC integration -- push hygiene
+#
+# This repo ships SOURCE ONLY. Everything derived, vendored, or fixture-sized
+# is excluded: benchmark task data, DuckDB databases, run outputs, agent
+# trajectories, and the two upstream clones.
+# ---------------------------------------------------------------------------
+
+# --- upstream clones (NOT ours; Spider2/ is itself a git repo) --------------
+# xlang-ai/Spider2 -- 7.1 GB, contains its own .git, benchmark fixtures and
+# gold databases. earendil-works/pi lives outside this tree but is listed so a
+# future copy/symlink into the repo can never be staged by accident.
+/Spider2/
+/pi/
+pi/
+
+# --- run outputs & agent artifacts (4.1 GB) --------------------------------
+/runs/
+output/
+logs/
+_pi_meta/
+sessions/
+trajectory.jsonl
+*.trajectory.json
+*.stdout.json
+*.stderr.log
+
+# --- databases & bulk data -------------------------------------------------
+*.duckdb
+*.duckdb.wal
+*.db
+*.sqlite
+*.sqlite3
+*.zip
+*.msgpack
+*.gpickle
+*.parquet
+*.csv
+
+# --- dbt build artifacts & vendored packages -------------------------------
+target/
+dbt_packages/
+dbt_modules/
+.user.yml
+profiles.yml
+
+# --- secrets & credentials (never commit) ----------------------------------
+.env
+.env.*
+*.env
+credentials
+credentials.json
+*_credential.json
+.netrc
+*.pem
+*.key
+*.p12
+id_rsa*
+.aws/
+aws_config
+
+# --- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+.venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# --- Node ------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+pnpm-debug.log*
+
+# --- editor / OS -----------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# --- local agent settings (machine-specific absolute paths) -----------------
+.claude/settings.local.json
