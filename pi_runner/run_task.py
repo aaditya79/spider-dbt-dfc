@@ -145,18 +145,116 @@ ORIENTATION = (
 
 # ------------------------------------------------------------- DFC policy ----
 
+DFC_POLICIES = ("recharge001", "idtype", "enum", "namegate")
+
+
 def _load_dfc_checker(name):
-    """Import the checker from the old-harness DFC work. Logic is NOT reimplemented."""
-    if name != "recharge001":
-        raise SystemExit(f"unknown --dfc-policy {name!r} (only 'recharge001' is ported)")
+    """Resolve a --dfc-policy name to its (checker, retry_message) pair.
+
+    Checker logic is NOT reimplemented here -- each policy owns its module under
+    spider_agent/agent/. All three share one contract: the checker takes a produced
+    DuckDB path and returns {"status": "pass"|"violation"|"error", "violations": [...],
+    "checked_rows": int, "message": str}; the retry builder turns a violation verdict
+    into the follow-up prompt sent back into the SAME Pi session.
+
+      recharge001 -- discount-amount invariant (Phase 2/3, the original policy).
+                     Its retry text was ported verbatim into this file, so it is the
+                     one policy whose message builder lives here rather than beside
+                     the checker.
+      idtype      -- charge_id/customer_id/address_id must keep the integer type of
+                     the charge_data source columns (not be cast to string).
+      enum        -- line_item_type must lie inside the domain declared for it in
+                     models/recharge.yml.
+      namegate    -- a model the agent creates must carry a name declared in the
+                     project's schema YAML (task-agnostic; derives the spec from the
+                     pristine fixture, never from gold).
+
+    Every checker STEERS only; the final 0/1 always comes from score_run.py/duckdb_match.
+    """
+    if name not in DFC_POLICIES:
+        raise SystemExit(f"unknown --dfc-policy {name!r} (known: {', '.join(DFC_POLICIES)})")
     if METHODS_DBT not in sys.path:
         sys.path.insert(0, METHODS_DBT)
-    from spider_agent.agent.dfc_check import check_recharge001_discounts
-    return check_recharge001_discounts
+
+    if name == "recharge001":
+        from spider_agent.agent.dfc_check import check_recharge001_discounts
+        return check_recharge001_discounts, dfc_retry_message
+    if name == "idtype":
+        from spider_agent.agent import dfc_check_idtype as mod
+        return mod.check_recharge001_id_types, mod.retry_message
+    if name == "namegate":
+        from spider_agent.agent import dfc_check_namegate as mod
+        return mod.check_namegate, mod.retry_message
+    from spider_agent.agent import dfc_check_enum as mod
+    return mod.check_recharge001_line_item_type, mod.retry_message
+
+
+def _load_dfc_stack(spec):
+    """Resolve a (possibly comma-separated) --dfc-policy spec to (checker, retry).
+
+    A single policy behaves exactly as before. Two or more STACK: the composite
+    checker evaluates them LEFT TO RIGHT and returns the FIRST violation, tagged with
+    `policy`. The existing DFC loop already re-checks after every retry, so stacking
+    needs no loop change: a run can violate policy A, be steered, then violate policy B
+    on the next check and be steered again, all inside one Pi session. Retries are
+    bounded by --dfc-max-retries across the whole stack, not per policy.
+
+    Order is significant and is preserved as given. A policy whose precondition another
+    policy establishes must come first: `namegate,recharge001` is correct, because the
+    discount checker returns "error" (target table not materialized) on a run that built
+    the model under an invented name -- it cannot judge what does not exist.
+
+    An "error" from one policy does NOT mask the others: errors are skipped and the next
+    policy is evaluated. The composite reports "error" only if every policy errored.
+    """
+    names = [n.strip() for n in spec.split(",") if n.strip()]
+    if not names:
+        raise SystemExit("--dfc-policy given an empty policy list")
+    for n in names:
+        if n not in DFC_POLICIES:
+            raise SystemExit(f"unknown --dfc-policy {n!r} "
+                             f"(known: {', '.join(DFC_POLICIES)})")
+    if len(names) != len(set(names)):
+        raise SystemExit(f"--dfc-policy lists a policy twice: {names}")
+
+    pairs = [(n, *_load_dfc_checker(n)) for n in names]
+    if len(pairs) == 1:
+        return pairs[0][1], pairs[0][2]
+
+    def composite_checker(produced_db):
+        seen = []
+        for name, chk, _ in pairs:
+            try:
+                v = dict(chk(produced_db), policy=name)
+            except Exception as e:
+                v = {"status": "error", "violations": [], "checked_rows": 0,
+                     "message": f"checker raised: {type(e).__name__}: {e}", "policy": name}
+            seen.append(v)
+            if v["status"] == "violation":
+                return dict(v, stack=names, evaluated=[x["policy"] for x in seen])
+        if all(v["status"] == "error" for v in seen):
+            return dict(seen[0], stack=names, evaluated=[x["policy"] for x in seen])
+        return {"status": "pass", "violations": [],
+                "checked_rows": sum(v.get("checked_rows", 0) or 0 for v in seen),
+                "message": "; ".join(f"{v['policy']}: {v['message']}" for v in seen),
+                "policy": "+".join(names), "stack": names,
+                "evaluated": [x["policy"] for x in seen]}
+
+    def composite_retry(verdict):
+        fired = verdict.get("policy")
+        for name, _, rt in pairs:
+            if name == fired:
+                return rt(verdict)
+        raise SystemExit(f"no retry builder for policy {fired!r} in stack {names}")
+
+    return composite_checker, composite_retry
 
 
 def dfc_retry_message(verdict):
-    """Violation-specific RETRY feedback.
+    """Violation-specific RETRY feedback for the `recharge001` discount policy.
+
+    The `idtype` and `enum` policies supply their own retry_message() beside their
+    checker; _load_dfc_checker() dispatches to whichever belongs to the policy in use.
 
     Ported verbatim from the old harness
     (spider_agent/agent/agents.py :: SpiderAgent._dfc_retry_message) with ONE
@@ -405,8 +503,13 @@ def main():
     ap.add_argument("--no-score", action="store_true")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--quiet", action="store_true")
-    ap.add_argument("--dfc-policy", default="off", choices=["off", "recharge001"],
-                    help="enable the DFC post-materialization policy loop (steering only)")
+    ap.add_argument("--dfc-policy", default="off",
+                    help="DFC policy loop (steering only). One policy, or several "
+                         "comma-separated to STACK them, evaluated left to right: "
+                         f"{{off, {', '.join(DFC_POLICIES)}}}. Order matters -- put a "
+                         "policy that must hold before others can be judged first "
+                         "(e.g. 'namegate,recharge001': the discount checker cannot "
+                         "evaluate a target table that was never built).")
     ap.add_argument("--dfc-max-retries", type=int, default=3)
     args = ap.parse_args()
 
@@ -414,7 +517,8 @@ def main():
         args.dfc_policy = None
 
     t0 = time.time()
-    checker = _load_dfc_checker(args.dfc_policy) if args.dfc_policy else None
+    checker, retry_message = (_load_dfc_stack(args.dfc_policy)
+                              if args.dfc_policy else (None, None))
 
     run_dir = prepare_run_dir(args.instance_id, args.runs_root,
                               args.experiment_id, force=args.force)
@@ -476,7 +580,7 @@ def main():
                 if attempt > args.dfc_max_retries:
                     break
 
-                msg = dfc_retry_message(verdict)
+                msg = retry_message(verdict)
                 print(f"[runner] DFC RETRY {attempt}/{args.dfc_max_retries}", file=sys.stderr)
                 r = drive_round(sess, traj, deadline, f"dfc-{attempt}", msg, attempt, args.quiet)
                 rounds.append(r)
