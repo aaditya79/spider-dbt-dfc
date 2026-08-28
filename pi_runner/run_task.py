@@ -311,7 +311,11 @@ def prepare_run_dir(instance_id, runs_root, experiment_id, force=False):
     return dst
 
 
-def build_env(aws_profile, aws_region, conda_bin):
+NUDGE_BIN = os.path.join(HERE, "nudge_bin")   # harness `dbt` shim (see nudge_bin/dbt)
+NUDGE_MODES = ("off", "generic", "specific")
+
+
+def build_env(aws_profile, aws_region, conda_bin, nudge_mode="off"):
     """Environment for the Pi subprocess.
 
       * AWS_PROFILE / AWS_REGION -- Pi does NOT fall back to the [default]
@@ -324,6 +328,11 @@ def build_env(aws_profile, aws_region, conda_bin):
     env["AWS_PROFILE"] = aws_profile
     env["AWS_REGION"] = aws_region
     env["PATH"] = conda_bin + os.pathsep + env.get("PATH", "")
+    # --harness-nudge: prepend the shim dir so the agent's `dbt` resolves to it.
+    # The shim re-surfaces dbt's OWN diagnostics; it never sees gold or a checker.
+    env["HARNESS_NUDGE_MODE"] = nudge_mode
+    if nudge_mode != "off":
+        env["PATH"] = NUDGE_BIN + os.pathsep + env["PATH"]
     return env
 
 
@@ -511,6 +520,12 @@ def main():
                          "(e.g. 'namegate,recharge001': the discount checker cannot "
                          "evaluate a target table that was never built).")
     ap.add_argument("--dfc-max-retries", type=int, default=3)
+    ap.add_argument("--harness-nudge", default="off", choices=list(NUDGE_MODES),
+                    help="re-surface dbt's OWN warnings/errors more saliently by putting "
+                         "a `dbt` shim on the agent's PATH. 'generic' appends a fixed "
+                         "task-agnostic instruction to re-check schema files; 'specific' "
+                         "echoes dbt's own missing-node warning de-jargonised. Neither "
+                         "reads gold or any checker.")
     args = ap.parse_args()
 
     if args.dfc_policy == "off":
@@ -543,7 +558,8 @@ def main():
         else:
             prompt_text, scaffold_used = ORIENTATION.format(instruction=instruction), ORIENTATION
 
-    env = build_env(args.aws_profile, args.aws_region, args.conda_bin)
+    env = build_env(args.aws_profile, args.aws_region, args.conda_bin,
+                    nudge_mode=args.harness_nudge)
     sess = PiRpcSession(args.pi, run_dir, args.provider, args.model,
                         args.tools, env, session_dir=session_dir)
 
@@ -611,6 +627,7 @@ def main():
         "dfc_policy": args.dfc_policy, "dfc_max_retries": args.dfc_max_retries,
         "run_dir": run_dir, "produced_db": produced_db, "trajectory": traj_path,
         "pi_stderr": stderr_path, "session_dir": session_dir,
+        "harness_nudge": args.harness_nudge,
         "prompt_sent": prompt_text, "instruction_verbatim": instruction,
         "prompt_scaffold": scaffold_used,
         "wall_clock_s": round(wall, 1), "pi_exit_code": exit_code,

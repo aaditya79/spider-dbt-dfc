@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""Harness-level `dbt` shim: re-surface dbt's OWN diagnostics more saliently.
+
+This is the ARM 2 / ARM 3 intervention for the harness-feedback experiment. The Pi
+runner cannot intercept tool results (Pi executes its bash tool internally), but it
+does control PATH for that tool. Prepending this directory to PATH lets the harness
+post-process dbt's output without touching Pi.
+
+STRICT RULE -- NO TASK LEAKAGE
+------------------------------
+The appended text is derived ONLY from what the real dbt binary just printed. This
+shim never reads the gold DuckDB, the eval spec, a DFC checker, or any knowledge of
+which model is graded. In `specific` mode it quotes dbt's own warning verbatim.
+`generic` mode is entirely task-agnostic and contains no names at all.
+
+Behaviour:
+  * exec the real dbt (first `dbt` on PATH that is not this file), pass through argv
+  * stream-preserve its combined output and its exit code exactly
+  * if that output contains a warning or error, append a nudge block
+
+Modes (env HARNESS_NUDGE_MODE):
+  off      -- pure passthrough, no append (identical to no shim)
+  generic  -- append a fixed, task-agnostic instruction to re-check the schema files
+  specific -- append dbt's own missing-node warning, de-jargonised and un-buried;
+              if no missing-node warning is present, echo the first error line instead
+              so the TRIGGER stays identical to generic mode
+"""
+import os
+import re
+import subprocess
+import sys
+
+SELF = os.path.realpath(__file__)
+SELF_DIR = os.path.dirname(SELF)
+MODE = os.environ.get("HARNESS_NUDGE_MODE", "off")
+
+# dbt's own phrasing for "a model is declared in a schema yml but has no SQL node".
+MISSING_NODE = re.compile(
+    r"Did not find matching node for patch with name '([^']+)'"
+    r"(?: in the '[^']*' section of file '([^']+)')?"
+)
+TRIGGER = re.compile(r"\[?WARNING\]?|Encountered an error|Compilation Error|"
+                     r"Database Error|Runtime Error|ERROR=[1-9]|FAIL=[1-9]", re.I)
+
+GENERIC = """
+================ HARNESS NOTICE ================
+One or more dbt warnings or errors appear above. They may indicate that your model
+does not match the project's declared schema. Before continuing, re-read the
+project's schema files (models/**/*.yml) and confirm that the model you are building
+matches what they declare -- its name and its structure. Do not dismiss a dbt warning
+as pre-existing without first checking it against the schema files.
+================================================
+"""
+
+
+def find_real_dbt():
+    for entry in os.environ.get("PATH", "").split(os.pathsep):
+        if not entry:
+            continue
+        try:
+            if os.path.realpath(entry) == os.path.realpath(SELF_DIR):
+                continue
+        except OSError:
+            continue
+        cand = os.path.join(entry, "dbt")
+        if os.path.isfile(cand) and os.access(cand, os.X_OK) \
+                and os.path.realpath(cand) != SELF:
+            return cand
+    return None
+
+
+def specific_block(out):
+    hits = []
+    for m in MISSING_NODE.finditer(out):
+        name, path = m.group(1), m.group(2)
+        hits.append((name, path))
+    seen = set()
+    hits = [h for h in hits if not (h in seen or seen.add(h))]
+    lines = ["", "================ HARNESS NOTICE ================"]
+    if hits:
+        lines.append("dbt reported that a model is DECLARED in this project's schema "
+                     "but has NO matching SQL model:")
+        for name, path in hits:
+            where = f" (declared in {path})" if path else ""
+            lines.append(f"  * no model matches the declared name '{name}'{where}")
+        lines.append("")
+        lines.append("This usually means the model you built does not carry the name the "
+                     "project declares -- i.e. you may have built the wrong model. Re-read "
+                     "the schema file above and confirm your model's name and structure "
+                     "against what it declares before continuing.")
+    else:
+        first = next((l.strip() for l in out.splitlines()
+                      if TRIGGER.search(l) and l.strip()), "")
+        lines.append("dbt reported a problem that has not been resolved:")
+        lines.append(f"  * {first[:300]}")
+        lines.append("")
+        lines.append("Re-read the project's schema files (models/**/*.yml) and confirm your "
+                     "model matches what they declare before continuing.")
+    lines.append("================================================")
+    return "\n".join(lines) + "\n"
+
+
+def main():
+    real = find_real_dbt()
+    if real is None:
+        sys.stderr.write("harness dbt shim: no real dbt found on PATH\n")
+        return 127
+    proc = subprocess.run([real] + sys.argv[1:], capture_output=True, text=True)
+    out = (proc.stdout or "") + (proc.stderr or "")
+    sys.stdout.write(proc.stdout or "")
+    sys.stderr.write(proc.stderr or "")
+    if MODE != "off" and TRIGGER.search(out):
+        sys.stdout.write(GENERIC if MODE == "generic" else specific_block(out))
+        sys.stdout.flush()
+    return proc.returncode
+
+
+if __name__ == "__main__":
+    sys.exit(main())
