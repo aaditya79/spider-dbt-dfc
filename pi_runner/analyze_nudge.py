@@ -41,6 +41,14 @@ from nudge_validity import classify                                  # noqa: E40
 from spider_agent.agent import dfc_check_namegate as ng              # noqa: E402
 
 ARMS = ("off", "generic", "specific")
+# The first batch (recharge001) predates the family extension and used un-prefixed
+# ids; every later task carries its name. Keep both so old records stay readable.
+LEGACY_TASK = "recharge001"
+
+
+def exp_id(task, arm, i):
+    return (f"nudge-{arm}-r{i}" if task == LEGACY_TASK
+            else f"nudge-{task}-{arm}-r{i}")
 NOTICE = "HARNESS NOTICE"
 MISSING_NODE = "Did not find matching node for patch"
 MODEL_RE = re.compile(r'models/(?:[A-Za-z0-9_]+/)*([A-Za-z0-9_]+)\.sql')
@@ -141,59 +149,123 @@ def row(exp, instance_id, runs_root):
 
 def main():
     runs_root = os.path.join(SPIDER, "runs", "pi")
-    instance_id = "recharge001"
-    n = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-    rows = [row(f"nudge-{a}-r{i}", instance_id, runs_root)
-            for a in ARMS for i in range(1, n + 1)]
+    args = [a for a in sys.argv[1:]]
+    n = 3
+    tasks = []
+    for a in args:
+        if a.isdigit():
+            n = int(a)
+        else:
+            tasks.append(a)
+    if not tasks:
+        tasks = ["recharge001", "shopify001", "shopify002", "recharge002"]
 
-    print(f"task={instance_id}  model=opus  declared-but-unshipped target(s): "
-          f"{declared_unshipped(instance_id)}\n")
-    hdr = (f"{'run':<19}{'valid':<7}{'wrongname':<11}{'tgtbuilt':<10}{'yml':<5}"
-           f"{'wrongW':<8}{'tgtW':<6}{'notice':<8}{'trap':<6}{'conv':<6}"
-           f"{'mnWarn':<8}{'score':<6}")
-    print(hdr); print("-" * len(hdr))
-    for r in rows:
-        if r["validity"] == "MISSING":
-            print(f"{r['exp']:<19}{'MISSING':<7}"); continue
-        v = "yes" if r["validity"] == "VALID" else r["validity"]
-        print(f"{r['exp']:<19}{v:<7}{str(r['wrong_name']):<11}{str(r['target_built']):<10}"
-              f"{str(r['first_yml']):<5}{str(r['first_wrong']):<8}{str(r['first_target']):<6}"
-              f"{str(r['first_notice']):<8}{str(r['entered_trap']):<6}{str(r['converted']):<6}"
-              f"{r['n_missing_node_warn']:<8}{str(r['score']):<6}")
+    all_rows = {}
+    for task in tasks:
+        rows = [row(exp_id(task, a, i), task, runs_root)
+                for a in ARMS for i in range(1, n + 1)]
+        if all(r["validity"] == "MISSING" for r in rows):
+            continue
+        all_rows[task] = rows
 
-    print("\n" + "=" * 92)
-    print("PER-ARM SUMMARY (valid trials only)")
-    print("=" * 92)
-    print(f"{'arm':<11}{'valid/n':<9}{'wrong-name surviving':<22}{'entered trap':<14}"
-          f"{'converted / trap':<18}{'official pass'}")
+    for task, rows in all_rows.items():
+        tgts = declared_unshipped(task)
+        print("#" * 100)
+        print(f"TASK {task}   declared-unbuilt targets: {len(tgts)}  {tgts}")
+        print("#" * 100)
+        hdr = (f"{'run':<32}{'valid':<9}{'wrongname':<11}{'tgtbuilt':<10}"
+               f"{'wrongW':<8}{'tgtW':<6}{'notice':<8}{'trap':<6}{'conv':<6}"
+               f"{'mnWarn':<8}{'score':<6}")
+        print(hdr); print("-" * len(hdr))
+        for r in rows:
+            if r["validity"] == "MISSING":
+                print(f"{r['exp']:<32}{'MISSING':<9}"); continue
+            v = "yes" if r["validity"] == "VALID" else r["validity"]
+            print(f"{r['exp']:<32}{v:<9}{str(r['wrong_name']):<11}"
+                  f"{str(r['target_built']):<10}{str(r['first_wrong']):<8}"
+                  f"{str(r['first_target']):<6}{str(r['first_notice']):<8}"
+                  f"{str(r['entered_trap']):<6}{str(r['converted']):<6}"
+                  f"{r['n_missing_node_warn']:<8}{str(r['score']):<6}")
+        print()
+        arm_table(rows, n)
+        baseline_signal(rows)
+        overfit_flag(task, rows)
+        print()
+
+    if len(all_rows) > 1:
+        print("=" * 100)
+        print("POOLED ACROSS TASKS")
+        print("=" * 100)
+        pooled = [r for rows in all_rows.values() for r in rows]
+        arm_table(pooled, n * len(all_rows))
+        baseline_signal(pooled)
+
+    print("\nCAUSALITY: a conversion requires the wrong name written BEFORE the first "
+          "notice and\nthe declared target AFTER it. Runs that never entered the trap "
+          "are not credited.\nconv/trap and conv/trials are reported separately because "
+          "the arms are not equally powered.")
+    print("SCOPE: naming only. dbt emits no signal for content defects, so official pass "
+          "is\nexpected to stay low and is not the quantity this intervention targets.")
+
+    with open(os.path.join(runs_root, "nudge_family_report.json"), "w") as fh:
+        json.dump(all_rows, fh, indent=2)
+    print(f"\nrows -> {os.path.join(runs_root, 'nudge_family_report.json')}")
+
+
+def arm_table(rows, n_per_arm):
+    print(f"{'arm':<11}{'valid':<9}{'VOID':<7}{'wrong-name':<16}{'trap':<8}"
+          f"{'conv/trap':<12}{'conv/trials':<13}{'official pass'}")
     for a in ARMS:
-        ar = [r for r in rows if r["exp"].startswith(f"nudge-{a}-")]
+        ar = [r for r in rows if f"-{a}-r" in r["exp"]]
         v = [r for r in ar if r["validity"] == "VALID"]
+        void = [r for r in ar if r["validity"] not in ("VALID", "MISSING")]
         if not v:
-            print(f"{a:<11}{f'0/{len(ar)}':<9}NO VALID TRIALS -- cannot report"); continue
+            print(f"{a:<11}{'0':<9}{len(void):<7}NO VALID TRIALS")
+            continue
         wn = sum(1 for r in v if r["wrong_name"])
         tr = sum(1 for r in v if r["entered_trap"])
         cv = sum(1 for r in v if r["converted"])
         ps = sum(1 for r in v if r["score"] == 1)
-        conv = f"{cv}/{tr}" if tr else "n/a (never entered)"
-        print(f"{a:<11}{f'{len(v)}/{len(ar)}':<9}"
-              f"{f'{wn}/{len(v)} ({wn/len(v):.0%})':<22}{f'{tr}/{len(v)}':<14}"
-              f"{conv:<18}{ps}/{len(v)}")
+        print(f"{a:<11}{f'{len(v)}/{len(ar)}':<9}{len(void):<7}"
+              f"{f'{wn}/{len(v)} ({wn/len(v):.0%})':<16}{f'{tr}/{len(v)}':<8}"
+              f"{(f'{cv}/{tr}' if tr else 'n/a'):<12}"
+              f"{f'{cv}/{len(v)}':<13}{ps}/{len(v)}")
 
-    short = [a for a in ARMS
-             if sum(1 for r in rows
-                    if r["exp"].startswith(f"nudge-{a}-") and r["validity"] == "VALID") < n]
-    print(f"\n!! ARMS WITH FEWER THAN {n} VALID TRIALS: {', '.join(short)}" if short
-          else f"\nAll arms have {n}/{n} valid trials.")
-    print("\nCAUSALITY: 'converted' requires the wrong name to be written BEFORE the first "
-          "notice\nand the declared target AFTER it. Runs that named correctly before any "
-          "notice fired\nare counted as 'correct_before_notice', NOT as conversions.")
-    print("SCOPE: naming only. dbt emits no signal for the content defect ([6]amount), so "
-          "name-correct\nruns can still score 0.")
 
-    with open(os.path.join(runs_root, "nudge_report.json"), "w") as fh:
-        json.dump(rows, fh, indent=2)
-    print(f"\nrows -> {os.path.join(runs_root, 'nudge_report.json')}")
+def baseline_signal(rows):
+    """Did dbt's OWN missing-node warning appear in each baseline run, and convert?"""
+    base = [r for r in rows if "-off-r" in r["exp"] and r["validity"] == "VALID"]
+    if not base:
+        print("  baseline: no valid trials"); return
+    with_warn = [r for r in base if r["n_missing_node_warn"] > 0]
+    conv = [r for r in with_warn if r["converted"]]
+    print(f"  baseline control: dbt's own 'Did not find matching node' warning appeared "
+          f"in {len(with_warn)}/{len(base)} baseline runs; "
+          f"it converted {len(conv)}/{len(with_warn) if with_warn else 0}")
+
+
+def overfit_flag(task, rows):
+    def arm(a):
+        v = [r for r in rows if f"-{a}-r" in r["exp"] and r["validity"] == "VALID"]
+        if not v: return None
+        tr = sum(1 for r in v if r["entered_trap"])
+        cv = sum(1 for r in v if r["converted"])
+        wn = sum(1 for r in v if r["wrong_name"])
+        return {"n": len(v), "trap": tr, "conv": cv, "wrong": wn,
+                "rate": (cv / tr) if tr else None, "wrong_rate": wn / len(v)}
+    g, sp = arm("generic"), arm("specific")
+    if not g or not sp:
+        return
+    worse = []
+    if g["rate"] is not None and sp["rate"] is not None and sp["rate"] < g["rate"]:
+        worse.append(f"conversion {sp['conv']}/{sp['trap']} vs generic {g['conv']}/{g['trap']}")
+    if sp["wrong_rate"] > g["wrong_rate"]:
+        worse.append(f"wrong-name {sp['wrong']}/{sp['n']} vs generic {g['wrong']}/{g['n']}")
+    if worse:
+        print(f"  !! OVERFITTING SIGNAL on {task}: SPECIFIC does worse than GENERIC -- "
+              + "; ".join(worse))
+    else:
+        print(f"  specific >= generic on {task} (no overfitting signal)")
 
 
 if __name__ == "__main__":
