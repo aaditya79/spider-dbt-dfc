@@ -1,0 +1,43 @@
+===== NUDGE ARMS  task=recharge001 model=opus  N=3 per arm  max_attempts=3 =====
+===== start 2026-08-28 18:23:24 =====
+--- ARM: harness-nudge=off ---
+  RUN  nudge-off-r1  attempt 1/3  18:23:25
+       exit=0  status=VALID
+       nudge-off-r1	VALID	tokens=25913	tools=28	settled=True	timed_out=False	score=0	net=None
+  RUN  nudge-off-r2  attempt 1/3  18:28:11
+       exit=0  status=VALID
+       nudge-off-r2	VALID	tokens=36057	tools=22	settled=True	timed_out=False	score=0	net=None
+  RUN  nudge-off-r3  attempt 1/3  18:31:00
+       exit=0  status=VALID
+       nudge-off-r3	VALID	tokens=19802	tools=14	settled=True	timed_out=False	score=0	net=None
+--- ARM: harness-nudge=generic ---
+  RUN  nudge-generic-r1  attempt 1/3  18:33:05
+       exit=0  status=VALID
+       nudge-generic-r1	VALID	tokens=40313	tools=26	settled=True	timed_out=False	score=0	net=None
+  RUN  nudge-generic-r2  attempt 1/3  18:35:23
+       exit=0  status=VALID
+       nudge-generic-r2	VALID	tokens=34880	tools=36	settled=True	timed_out=False	score=0	net=None
+  RUN  nudge-generic-r3  attempt 1/3  18:40:23
+       exit=0  status=VALID
+       nudge-generic-r3	VALID	tokens=23863	tools=20	settled=True	timed_out=False	score=0	net=None
+--- ARM: harness-nudge=specific ---
+  RUN  nudge-specific-r1  attempt 1/3  18:43:23
+       exit=0  status=VALID
+       nudge-specific-r1	VALID	tokens=34490	tools=28	settled=True	timed_out=False	score=0	net=None
+  RUN  nudge-specific-r2  attempt 1/3  18:47:50
+       exit=0  status=VALID
+       nudge-specific-r2	VALID	tokens=31686	tools=18	settled=True	timed_out=False	score=0	net=None
+  RUN  nudge-specific-r3  attempt 1/3  18:51:26
+       exit=0  status=VALID
+       nudge-specific-r3	VALID	tokens=29308	tools=27	settled=True	timed_out=False	score=0	net=None
+===== NUDGE ARMS DONE 2026-08-28 18:55:06 =====
+--- final validity ---
+  nudge-off-r1         VALID
+  nudge-off-r2         VALID
+  nudge-off-r3         VALID
+  nudge-generic-r1     VALID
+  nudge-generic-r2     VALID
+  nudge-generic-r3     VALID
+  nudge-specific-r1    VALID
+  nudge-specific-r2    VALID
+  nudge-specific-r3    VALID
