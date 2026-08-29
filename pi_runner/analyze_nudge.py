@@ -55,6 +55,45 @@ MODEL_RE = re.compile(r'models/(?:[A-Za-z0-9_]+/)*([A-Za-z0-9_]+)\.sql')
 WRITE_TOOLS = ("write", "edit", "str_replace", "create_file")
 
 
+GOLD_SPEC = os.path.join(SPIDER, "Spider2", "spider2-dbt", "evaluation_suite",
+                         "gold", "spider2_eval.jsonl")
+
+
+def scored_targets(instance_id):
+    """The tables duckdb_match actually grades (condition_tabs), from the gold spec.
+
+    Needed because the name-gate passes if ANY declared-but-unbuilt model is built.
+    On a multi-target task (shopify002 declares 5, shopify001 6) that is a weaker
+    claim than "built the graded table": an agent can satisfy the gate with a
+    correctly-named but wrong member of the set. Reporting both keeps the
+    wrong-name number from reading as more than it is. Single-target tasks
+    (recharge001, recharge002) do not have this gap.
+    """
+    try:
+        with open(GOLD_SPEC) as fh:
+            for line in fh:
+                o = json.loads(line)
+                if o.get("instance_id") == instance_id:
+                    return list(o["evaluation"]["parameters"]["condition_tabs"])
+    except Exception:
+        pass
+    return []
+
+
+def materialized_tables(db_path):
+    if not db_path or not os.path.exists(db_path):
+        return set()
+    try:
+        import duckdb
+        con = duckdb.connect(db_path, read_only=True)
+        try:
+            return {r[0] for r in con.execute("SHOW TABLES").fetchall()}
+        finally:
+            con.close()
+    except Exception:
+        return set()
+
+
 def declared_unshipped(instance_id):
     """Declared-but-no-SQL models in the pristine fixture (the name-gate's candidates)."""
     fixture = os.path.join(ng.EXAMPLES, instance_id)
@@ -136,6 +175,13 @@ def row(exp, instance_id, runs_root):
     r["wrong_name"] = (gate.get("status") == "violation")
     r["target_built"] = bool(r["built_candidates"])
 
+    scored = scored_targets(instance_id)
+    mat = materialized_tables(rec.get("produced_db"))
+    r["scored_targets"] = scored
+    r["scored_built"] = sorted(t for t in scored if t in mat)
+    r["scored_all_built"] = bool(scored) and all(t in mat for t in scored)
+    r["multi_target"] = len(targets) > 1
+
     s = scan_trajectory(rec.get("trajectory"), set(targets), declared)
     r.update(s)
     fn, ft, fw = s["first_notice"], s["first_target"], s["first_wrong"]
@@ -174,15 +220,16 @@ def main():
         print(f"TASK {task}   declared-unbuilt targets: {len(tgts)}  {tgts}")
         print("#" * 100)
         hdr = (f"{'run':<32}{'valid':<9}{'wrongname':<11}{'tgtbuilt':<10}"
-               f"{'wrongW':<8}{'tgtW':<6}{'notice':<8}{'trap':<6}{'conv':<6}"
-               f"{'mnWarn':<8}{'score':<6}")
+               f"{'SCORED':<8}{'wrongW':<8}{'tgtW':<6}{'notice':<8}{'trap':<6}"
+               f"{'conv':<6}{'mnWarn':<8}{'score':<6}")
         print(hdr); print("-" * len(hdr))
         for r in rows:
             if r["validity"] == "MISSING":
                 print(f"{r['exp']:<32}{'MISSING':<9}"); continue
             v = "yes" if r["validity"] == "VALID" else r["validity"]
             print(f"{r['exp']:<32}{v:<9}{str(r['wrong_name']):<11}"
-                  f"{str(r['target_built']):<10}{str(r['first_wrong']):<8}"
+                  f"{str(r['target_built']):<10}{str(r.get('scored_all_built')):<8}"
+                  f"{str(r['first_wrong']):<8}"
                   f"{str(r['first_target']):<6}{str(r['first_notice']):<8}"
                   f"{str(r['entered_trap']):<6}{str(r['converted']):<6}"
                   f"{r['n_missing_node_warn']:<8}{str(r['score']):<6}")
@@ -213,7 +260,8 @@ def main():
 
 
 def arm_table(rows, n_per_arm):
-    print(f"{'arm':<11}{'valid':<9}{'VOID':<7}{'wrong-name':<16}{'trap':<8}"
+    print(f"{'arm':<11}{'valid':<9}{'VOID':<7}{'wrong-name':<16}"
+          f"{'SCORED built':<14}{'trap':<8}"
           f"{'conv/trap':<12}{'conv/trials':<13}{'official pass'}")
     for a in ARMS:
         ar = [r for r in rows if f"-{a}-r" in r["exp"]]
@@ -226,8 +274,10 @@ def arm_table(rows, n_per_arm):
         tr = sum(1 for r in v if r["entered_trap"])
         cv = sum(1 for r in v if r["converted"])
         ps = sum(1 for r in v if r["score"] == 1)
+        sc = sum(1 for r in v if r.get("scored_all_built"))
         print(f"{a:<11}{f'{len(v)}/{len(ar)}':<9}{len(void):<7}"
-              f"{f'{wn}/{len(v)} ({wn/len(v):.0%})':<16}{f'{tr}/{len(v)}':<8}"
+              f"{f'{wn}/{len(v)} ({wn/len(v):.0%})':<16}"
+              f"{f'{sc}/{len(v)}':<14}{f'{tr}/{len(v)}':<8}"
               f"{(f'{cv}/{tr}' if tr else 'n/a'):<12}"
               f"{f'{cv}/{len(v)}':<13}{ps}/{len(v)}")
 
@@ -255,6 +305,13 @@ def overfit_flag(task, rows):
                 "rate": (cv / tr) if tr else None, "wrong_rate": wn / len(v)}
     g, sp = arm("generic"), arm("specific")
     if not g or not sp:
+        return
+    base = [r for r in rows if "-off-r" in r["exp"] and r["validity"] == "VALID"]
+    total_trap = sp["trap"] + g["trap"] + sum(1 for r in base if r["entered_trap"])
+    if total_trap == 0:
+        print(f"  (no run in ANY arm entered the wrong-name trap on {task} -- this task "
+              f"cannot\n   discriminate between the arms; specific-vs-generic is not "
+              f"reported for it)")
         return
     worse = []
     if g["rate"] is not None and sp["rate"] is not None and sp["rate"] < g["rate"]:
