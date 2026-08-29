@@ -1,0 +1,107 @@
+####################################################################################################
+TASK recharge001   declared-unbuilt targets: 1  ['recharge__charge_line_item_history']
+####################################################################################################
+run                             valid    wrongname  tgtbuilt  SCORED  wrongW  tgtW  notice  trap  conv  mnWarn  score 
+----------------------------------------------------------------------------------------------------------------------
+nudge-off-r1                    yes      True       False     False   15      None  None    True  False 2       0     
+nudge-off-r2                    yes      True       False     False   14      None  None    True  False 1       0     
+nudge-off-r3                    yes      True       False     False   7       None  None    True  False 2       0     
+nudge-generic-r1                yes      False      True      True    None    16    17      False False 0       0     
+nudge-generic-r2                yes      False      True      True    6       19    9       True  True  1       0     
+nudge-generic-r3                yes      False      True      True    None    8     9       False False 0       0     
+nudge-specific-r1               yes      False      True      True    13      23    14      True  True  1       0     
+nudge-specific-r2               yes      False      True      True    7       14    8       True  True  1       0     
+nudge-specific-r3               yes      False      True      True    15      23    16      True  True  1       0     
+
+arm        valid    VOID   wrong-name      SCORED built  trap    conv/trap   conv/trials  official pass
+off        3/3      0      3/3 (100%)      0/3           3/3     0/3         0/3          0/3
+generic    3/3      0      0/3 (0%)        3/3           1/3     1/1         1/3          0/3
+specific   3/3      0      0/3 (0%)        3/3           3/3     3/3         3/3          0/3
+  baseline control: dbt's own 'Did not find matching node' warning appeared in 3/3 baseline runs; it converted 0/3
+  specific >= generic on recharge001 (no overfitting signal)
+
+####################################################################################################
+TASK shopify001   declared-unbuilt targets: 6  ['shopify__customer_cohorts', 'shopify__customer_email_cohorts', 'shopify__customer_emails', 'shopify__customers', 'shopify__daily_shop', 'shopify__products']
+####################################################################################################
+run                             valid    wrongname  tgtbuilt  SCORED  wrongW  tgtW  notice  trap  conv  mnWarn  score 
+----------------------------------------------------------------------------------------------------------------------
+nudge-shopify001-off-r1         yes      False      True      True    None    13    None    False False 1       0     
+nudge-shopify001-off-r2         yes      False      True      True    None    18    None    False False 1       0     
+nudge-shopify001-off-r3         yes      False      True      True    None    9     None    False False 1       0     
+nudge-shopify001-generic-r1     yes      False      True      True    None    27    29      False False 1       0     
+nudge-shopify001-generic-r2     yes      False      True      True    None    18    21      False False 1       0     
+nudge-shopify001-generic-r3     yes      False      True      True    None    18    22      False False 1       0     
+nudge-shopify001-specific-r1    yes      False      True      True    None    20    22      False False 1       0     
+nudge-shopify001-specific-r2    yes      False      True      True    None    17    19      False False 1       0     
+nudge-shopify001-specific-r3    yes      False      True      True    None    10    12      False False 1       0     
+
+arm        valid    VOID   wrong-name      SCORED built  trap    conv/trap   conv/trials  official pass
+off        3/3      0      0/3 (0%)        3/3           0/3     n/a         0/3          0/3
+generic    3/3      0      0/3 (0%)        3/3           0/3     n/a         0/3          0/3
+specific   3/3      0      0/3 (0%)        3/3           0/3     n/a         0/3          0/3
+  baseline control: dbt's own 'Did not find matching node' warning appeared in 3/3 baseline runs; it converted 0/3
+  (no run in ANY arm entered the wrong-name trap on shopify001 -- this task cannot
+   discriminate between the arms; specific-vs-generic is not reported for it)
+
+####################################################################################################
+TASK recharge002   declared-unbuilt targets: 1  ['recharge__customer_daily_rollup']
+####################################################################################################
+run                             valid    wrongname  tgtbuilt  SCORED  wrongW  tgtW  notice  trap  conv  mnWarn  score 
+----------------------------------------------------------------------------------------------------------------------
+nudge-recharge002-off-r1        yes      False      True      True    None    14    None    False False 0       1     
+nudge-recharge002-off-r2        yes      False      True      True    None    18    None    False False 0       1     
+nudge-recharge002-off-r3        yes      False      True      True    None    16    None    False False 0       1     
+nudge-recharge002-generic-r1    yes      False      True      True    None    9     10      False False 0       0     
+nudge-recharge002-generic-r2    yes      False      True      True    None    12    15      False False 0       1     
+nudge-recharge002-generic-r3    yes      False      True      True    None    13    14      False False 0       0     
+nudge-recharge002-specific-r1   yes      False      True      True    None    14    15      False False 0       1     
+nudge-recharge002-specific-r2   yes      False      True      True    None    23    10      False False 1       1     
+nudge-recharge002-specific-r3   yes      False      True      True    None    14    15      False False 0       1     
+
+arm        valid    VOID   wrong-name      SCORED built  trap    conv/trap   conv/trials  official pass
+off        3/3      0      0/3 (0%)        3/3           0/3     n/a         0/3          3/3
+generic    3/3      0      0/3 (0%)        3/3           0/3     n/a         0/3          1/3
+specific   3/3      0      0/3 (0%)        3/3           0/3     n/a         0/3          3/3
+  baseline control: dbt's own 'Did not find matching node' warning appeared in 0/3 baseline runs; it converted 0/0
+  (no run in ANY arm entered the wrong-name trap on recharge002 -- this task cannot
+   discriminate between the arms; specific-vs-generic is not reported for it)
+
+####################################################################################################
+TASK shopify002   declared-unbuilt targets: 5  ['shopify__customer_cohorts', 'shopify__customer_email_cohorts', 'shopify__customer_emails', 'shopify__customers', 'shopify__discounts']
+####################################################################################################
+run                             valid    wrongname  tgtbuilt  SCORED  wrongW  tgtW  notice  trap  conv  mnWarn  score 
+----------------------------------------------------------------------------------------------------------------------
+nudge-shopify002-off-r1         yes      False      True      True    None    17    None    False False 1       1     
+nudge-shopify002-off-r2         yes      False      True      True    None    14    None    False False 1       1     
+nudge-shopify002-off-r3         yes      False      True      True    None    14    None    False False 1       1     
+nudge-shopify002-generic-r1     yes      False      True      True    None    21    22      False False 1       1     
+nudge-shopify002-generic-r2     yes      False      True      True    None    18    19      False False 1       1     
+nudge-shopify002-generic-r3     yes      False      True      True    None    18    19      False False 1       1     
+nudge-shopify002-specific-r1    yes      False      True      True    None    15    16      False False 1       1     
+nudge-shopify002-specific-r2    yes      False      True      True    None    24    25      False False 1       1     
+nudge-shopify002-specific-r3    MISSING  
+
+arm        valid    VOID   wrong-name      SCORED built  trap    conv/trap   conv/trials  official pass
+off        3/3      0      0/3 (0%)        3/3           0/3     n/a         0/3          3/3
+generic    3/3      0      0/3 (0%)        3/3           0/3     n/a         0/3          3/3
+specific   2/3      0      0/2 (0%)        2/2           0/2     n/a         0/2          2/2
+  baseline control: dbt's own 'Did not find matching node' warning appeared in 3/3 baseline runs; it converted 0/3
+  (no run in ANY arm entered the wrong-name trap on shopify002 -- this task cannot
+   discriminate between the arms; specific-vs-generic is not reported for it)
+
+====================================================================================================
+POOLED ACROSS TASKS
+====================================================================================================
+arm        valid    VOID   wrong-name      SCORED built  trap    conv/trap   conv/trials  official pass
+off        12/12    0      3/12 (25%)      9/12          3/12    0/3         0/12         6/12
+generic    12/12    0      0/12 (0%)       12/12         1/12    1/1         1/12         4/12
+specific   11/12    0      0/11 (0%)       11/11         3/11    3/3         3/11         5/11
+  baseline control: dbt's own 'Did not find matching node' warning appeared in 9/12 baseline runs; it converted 0/9
+
+CAUSALITY: a conversion requires the wrong name written BEFORE the first notice and
+the declared target AFTER it. Runs that never entered the trap are not credited.
+conv/trap and conv/trials are reported separately because the arms are not equally powered.
+SCOPE: naming only. dbt emits no signal for content defects, so official pass is
+expected to stay low and is not the quantity this intervention targets.
+
+rows -> /Users/aadityapai/Desktop/DAPLab/spider/runs/pi/nudge_family_report.json

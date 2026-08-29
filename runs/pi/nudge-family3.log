@@ -1,0 +1,25 @@
+===== NUDGE FAMILY  tasks=[shopify002]  model=opus  N=3 per arm per task =====
+===== start 2026-08-29 01:18:49 =====
+########## TASK: shopify002 ##########
+--- ARM: harness-nudge=off  task=shopify002 ---
+  SKIP (valid)  nudge-shopify002-off-r1
+  SKIP (valid)  nudge-shopify002-off-r2
+  SKIP (valid)  nudge-shopify002-off-r3
+--- ARM: harness-nudge=generic  task=shopify002 ---
+  RUN  nudge-shopify002-generic-r1  attempt 1/3  01:18:49
+       exit=0  status=VALID
+       nudge-shopify002-generic-r1	VALID	tokens=26358	tools=25	settled=True	timed_out=False	score=1	net=None
+  RUN  nudge-shopify002-generic-r2  attempt 1/3  01:20:52
+       exit=0  status=VALID
+       nudge-shopify002-generic-r2	VALID	tokens=30574	tools=22	settled=True	timed_out=False	score=1	net=None
+  RUN  nudge-shopify002-generic-r3  attempt 1/3  01:23:42
+       exit=0  status=VALID
+       nudge-shopify002-generic-r3	VALID	tokens=30198	tools=22	settled=True	timed_out=False	score=1	net=None
+--- ARM: harness-nudge=specific  task=shopify002 ---
+  RUN  nudge-shopify002-specific-r1  attempt 1/3  01:26:05
+       exit=0  status=VALID
+       nudge-shopify002-specific-r1	VALID	tokens=24262	tools=19	settled=True	timed_out=False	score=1	net=None
+  RUN  nudge-shopify002-specific-r2  attempt 1/3  01:28:02
+       exit=0  status=VALID
+       nudge-shopify002-specific-r2	VALID	tokens=33169	tools=27	settled=True	timed_out=False	score=1	net=None
+  RUN  nudge-shopify002-specific-r3  attempt 1/3  01:30:54
