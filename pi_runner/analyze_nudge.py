@@ -44,11 +44,15 @@ ARMS = ("off", "generic", "specific")
 # The first batch (recharge001) predates the family extension and used un-prefixed
 # ids; every later task carries its name. Keep both so old records stay readable.
 LEGACY_TASK = "recharge001"
+# Run-id namespace. The Opus batches use "nudge"; a per-model batch (e.g. Haiku)
+# passes --prefix so its ids cannot collide with them.
+PREFIX = "nudge"
 
 
 def exp_id(task, arm, i):
-    return (f"nudge-{arm}-r{i}" if task == LEGACY_TASK
-            else f"nudge-{task}-{arm}-r{i}")
+    if PREFIX == "nudge" and task == LEGACY_TASK:
+        return f"nudge-{arm}-r{i}"          # first batch predates the task-in-id scheme
+    return f"{PREFIX}-{task}-{arm}-r{i}"
 NOTICE = "HARNESS NOTICE"
 MISSING_NODE = "Did not find matching node for patch"
 MODEL_RE = re.compile(r'models/(?:[A-Za-z0-9_]+/)*([A-Za-z0-9_]+)\.sql')
@@ -195,11 +199,14 @@ def row(exp, instance_id, runs_root):
 
 def main():
     runs_root = os.path.join(SPIDER, "runs", "pi")
+    global PREFIX
     args = [a for a in sys.argv[1:]]
     n = 3
     tasks = []
     for a in args:
-        if a.isdigit():
+        if a.startswith("--prefix="):
+            PREFIX = a.split("=", 1)[1]
+        elif a.isdigit():
             n = int(a)
         else:
             tasks.append(a)
@@ -254,9 +261,11 @@ def main():
     print("SCOPE: naming only. dbt emits no signal for content defects, so official pass "
           "is\nexpected to stay low and is not the quantity this intervention targets.")
 
-    with open(os.path.join(runs_root, "nudge_family_report.json"), "w") as fh:
+    out_name = ("nudge_family_report.json" if PREFIX == "nudge"
+                else f"{PREFIX}_family_report.json")
+    with open(os.path.join(runs_root, out_name), "w") as fh:
         json.dump(all_rows, fh, indent=2)
-    print(f"\nrows -> {os.path.join(runs_root, 'nudge_family_report.json')}")
+    print(f"\nrows -> {os.path.join(runs_root, out_name)}")
 
 
 def arm_table(rows, n_per_arm):

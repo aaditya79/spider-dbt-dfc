@@ -19,11 +19,18 @@
 set -u
 N="${1:-3}"
 TASKS="${TASKS:-shopify001 shopify002 recharge002}"
+# ARMS lets the baseline be run alone as a GATE: if the baseline arm shows no
+# wrong-name trap entries, the task did not reproduce the failure on this draw and
+# comparing generic vs specific would be reading noise. Run "off" first, check, then
+# run the rest only if the failure actually reproduced.
+ARMS="${ARMS:-off generic specific}"
 SPIDER=~/Desktop/DAPLab/spider
 PY=~/miniconda3/envs/spider2/bin/python
 RUNS="$SPIDER/runs/pi"
 VOIDDIR="$RUNS/_void_nudge_retries"
-MODEL="us.anthropic.claude-opus-4-8"
+# PREFIX namespaces run ids per model so a Haiku batch never collides with the Opus one.
+PREFIX="${PREFIX:-nudge}"
+MODEL="${MODEL:-us.anthropic.claude-opus-4-8}"
 TIMEOUT="${TIMEOUT:-2400}"
 MAX_ATTEMPTS="${MAX_ATTEMPTS:-3}"
 BEDROCK_HOST="bedrock-runtime.us-east-1.amazonaws.com"
@@ -51,15 +58,16 @@ wait_for_network () {
   return 0
 }
 
-echo "===== NUDGE FAMILY  tasks=[$TASKS]  model=opus  N=$N per arm per task ====="
+echo "===== NUDGE FAMILY  tasks=[$TASKS]  arms=[$ARMS]  model=$MODEL"
+echo "=====   prefix=$PREFIX  N=$N per arm per task ====="
 echo "===== start $(date '+%Y-%m-%d %H:%M:%S') ====="
 
 for TASK in $TASKS; do
   echo "########## TASK: $TASK ##########"
-  for MODE in off generic specific; do
+  for MODE in $ARMS; do
     echo "--- ARM: harness-nudge=$MODE  task=$TASK ---"
     for i in $(seq 1 "$N"); do
-      EXP="nudge-${TASK}-${MODE}-r${i}"; OUT="$RUNS/${EXP}.stdout.json"
+      EXP="${PREFIX}-${TASK}-${MODE}-r${i}"; OUT="$RUNS/${EXP}.stdout.json"
 
       ST="$(status_of "$OUT")"
       if [ "$ST" = "VALID" ]; then echo "  SKIP (valid)  $EXP"; continue; fi
@@ -97,10 +105,10 @@ done
 echo "===== NUDGE FAMILY DONE $(date '+%Y-%m-%d %H:%M:%S') ====="
 echo "--- final validity ---"
 for TASK in $TASKS; do
-  for MODE in off generic specific; do
+  for MODE in $ARMS; do
     for i in $(seq 1 "$N"); do
-      printf '  %-34s %s\n' "nudge-${TASK}-${MODE}-r${i}" \
-        "$(status_of "$RUNS/nudge-${TASK}-${MODE}-r${i}.stdout.json")"
+      printf '  %-40s %s\n' "${PREFIX}-${TASK}-${MODE}-r${i}" \
+        "$(status_of "$RUNS/${PREFIX}-${TASK}-${MODE}-r${i}.stdout.json")"
     done
   done
 done
