@@ -322,6 +322,12 @@ def overfit_flag(task, rows):
               f"cannot\n   discriminate between the arms; specific-vs-generic is not "
               f"reported for it)")
         return
+    if g["conv"] == 0 and sp["conv"] == 0:
+        print(f"  (neither nudge arm converted a single trap entry on {task} "
+              f"(generic 0/{g['trap']}, specific 0/{sp['trap']}) -- the intervention did\n"
+              f"   not work here at all, so specific-vs-generic has nothing to rank; not "
+              f"reported)")
+        return
     worse = []
     if g["rate"] is not None and sp["rate"] is not None and sp["rate"] < g["rate"]:
         worse.append(f"conversion {sp['conv']}/{sp['trap']} vs generic {g['conv']}/{g['trap']}")

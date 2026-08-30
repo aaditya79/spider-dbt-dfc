@@ -1,0 +1,28 @@
+===== NUDGE FAMILY  tasks=[shopify002]  arms=[generic specific]  model=us.anthropic.claude-haiku-4-5-20251001-v1:0
+=====   prefix=nudgeh  N=3 per arm per task =====
+===== start 2026-08-29 21:21:47 =====
+########## TASK: shopify002 ##########
+--- ARM: harness-nudge=generic  task=shopify002 ---
+  SKIP (valid)  nudgeh-shopify002-generic-r1
+  SKIP (valid)  nudgeh-shopify002-generic-r2
+  RUN  nudgeh-shopify002-generic-r3  attempt 1/3  21:21:47
+       exit=0  status=VALID
+       nudgeh-shopify002-generic-r3	VALID	tokens=88070	tools=69	settled=True	timed_out=False	score=0	net=None
+--- ARM: harness-nudge=specific  task=shopify002 ---
+  RUN  nudgeh-shopify002-specific-r1  attempt 1/3  21:27:35
+       exit=0  status=VALID
+       nudgeh-shopify002-specific-r1	VALID	tokens=57164	tools=33	settled=True	timed_out=False	score=1	net=None
+  RUN  nudgeh-shopify002-specific-r2  attempt 1/3  21:30:14
+       exit=0  status=VALID
+       nudgeh-shopify002-specific-r2	VALID	tokens=63437	tools=34	settled=True	timed_out=False	score=0	net=None
+  RUN  nudgeh-shopify002-specific-r3  attempt 1/3  21:33:40
+       exit=0  status=VALID
+       nudgeh-shopify002-specific-r3	VALID	tokens=55580	tools=39	settled=True	timed_out=False	score=1	net=None
+===== NUDGE FAMILY DONE 2026-08-29 21:36:19 =====
+--- final validity ---
+  nudgeh-shopify002-generic-r1             VALID
+  nudgeh-shopify002-generic-r2             VALID
+  nudgeh-shopify002-generic-r3             VALID
+  nudgeh-shopify002-specific-r1            VALID
+  nudgeh-shopify002-specific-r2            VALID
+  nudgeh-shopify002-specific-r3            VALID

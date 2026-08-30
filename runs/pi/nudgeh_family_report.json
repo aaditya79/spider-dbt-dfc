@@ -1,0 +1,699 @@
+{
+  "shopify001": [
+    {
+      "exp": "nudgeh-shopify001-off-r1",
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 39049,
+      "tools": 27,
+      "wall_s": 101.9,
+      "net": null,
+      "gate_status": "violation",
+      "undeclared_built": [
+        "shopify__daily_shop_performance",
+        "shopify__product_performance"
+      ],
+      "built_candidates": [],
+      "wrong_name": true,
+      "target_built": false,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [],
+      "scored_all_built": false,
+      "multi_target": true,
+      "n_tool_calls": 27,
+      "n_notice": 0,
+      "n_missing_node_warn": 1,
+      "first_yml": null,
+      "first_wrong": 17,
+      "first_target": null,
+      "first_notice": null,
+      "wrong_names": [
+        "shopify__daily_shop_performance",
+        "shopify__product_performance"
+      ],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": true,
+      "converted": false,
+      "correct_before_notice": false
+    },
+    {
+      "exp": "nudgeh-shopify001-off-r2",
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 52627,
+      "tools": 44,
+      "wall_s": 152.3,
+      "net": null,
+      "gate_status": "violation",
+      "undeclared_built": [
+        "shopify__daily_shop_performance",
+        "shopify__product_performance"
+      ],
+      "built_candidates": [],
+      "wrong_name": true,
+      "target_built": false,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [],
+      "scored_all_built": false,
+      "multi_target": true,
+      "n_tool_calls": 44,
+      "n_notice": 0,
+      "n_missing_node_warn": 4,
+      "first_yml": 9,
+      "first_wrong": 11,
+      "first_target": null,
+      "first_notice": null,
+      "wrong_names": [
+        "shopify__daily_shop_performance",
+        "shopify__product_performance"
+      ],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": true,
+      "converted": false,
+      "correct_before_notice": false
+    },
+    {
+      "exp": "nudgeh-shopify001-off-r3",
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 41942,
+      "tools": 35,
+      "wall_s": 123.4,
+      "net": null,
+      "gate_status": "violation",
+      "undeclared_built": [
+        "shopify__daily_shop_performance",
+        "shopify__product_summary"
+      ],
+      "built_candidates": [],
+      "wrong_name": true,
+      "target_built": false,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [],
+      "scored_all_built": false,
+      "multi_target": true,
+      "n_tool_calls": 35,
+      "n_notice": 0,
+      "n_missing_node_warn": 3,
+      "first_yml": 6,
+      "first_wrong": 10,
+      "first_target": null,
+      "first_notice": null,
+      "wrong_names": [
+        "shopify__daily_shop_performance",
+        "shopify__product_summary"
+      ],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": true,
+      "converted": false,
+      "correct_before_notice": false
+    },
+    {
+      "exp": "nudgeh-shopify001-generic-r1",
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 45972,
+      "tools": 42,
+      "wall_s": 143.4,
+      "net": null,
+      "gate_status": "violation",
+      "undeclared_built": [
+        "shopify__daily_shop_performance",
+        "shopify__product_performance"
+      ],
+      "built_candidates": [],
+      "wrong_name": true,
+      "target_built": false,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [],
+      "scored_all_built": false,
+      "multi_target": true,
+      "n_tool_calls": 42,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 5,
+      "first_wrong": 15,
+      "first_target": null,
+      "first_notice": 17,
+      "wrong_names": [
+        "shopify__daily_shop_performance",
+        "shopify__product_performance"
+      ],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": true,
+      "entered_trap": true,
+      "converted": false,
+      "correct_before_notice": false
+    },
+    {
+      "exp": "nudgeh-shopify001-generic-r2",
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 35303,
+      "tools": 35,
+      "wall_s": 121.5,
+      "net": null,
+      "gate_status": "violation",
+      "undeclared_built": [
+        "shopify__daily_shop_performance",
+        "shopify__product_performance"
+      ],
+      "built_candidates": [],
+      "wrong_name": true,
+      "target_built": false,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [],
+      "scored_all_built": false,
+      "multi_target": true,
+      "n_tool_calls": 35,
+      "n_notice": 2,
+      "n_missing_node_warn": 1,
+      "first_yml": 21,
+      "first_wrong": 14,
+      "first_target": null,
+      "first_notice": 17,
+      "wrong_names": [
+        "shopify__daily_shop_performance",
+        "shopify__product_performance"
+      ],
+      "reread_yml_after_notice": 1,
+      "nudge_fired": true,
+      "entered_trap": true,
+      "converted": false,
+      "correct_before_notice": false
+    },
+    {
+      "exp": "nudgeh-shopify001-generic-r3",
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 52795,
+      "tools": 41,
+      "wall_s": 325.8,
+      "net": null,
+      "gate_status": "violation",
+      "undeclared_built": [
+        "shopify__daily_shop_performance",
+        "shopify__product_sales_summary"
+      ],
+      "built_candidates": [],
+      "wrong_name": true,
+      "target_built": false,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [],
+      "scored_all_built": false,
+      "multi_target": true,
+      "n_tool_calls": 41,
+      "n_notice": 3,
+      "n_missing_node_warn": 1,
+      "first_yml": 8,
+      "first_wrong": 11,
+      "first_target": null,
+      "first_notice": 17,
+      "wrong_names": [
+        "shopify__daily_shop_performance",
+        "shopify__product_sales_summary"
+      ],
+      "reread_yml_after_notice": 2,
+      "nudge_fired": true,
+      "entered_trap": true,
+      "converted": false,
+      "correct_before_notice": false
+    },
+    {
+      "exp": "nudgeh-shopify001-specific-r1",
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 59498,
+      "tools": 39,
+      "wall_s": 168.1,
+      "net": null,
+      "gate_status": "violation",
+      "undeclared_built": [
+        "shopify__daily_shop_performance",
+        "shopify__product_performance"
+      ],
+      "built_candidates": [],
+      "wrong_name": true,
+      "target_built": false,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [],
+      "scored_all_built": false,
+      "multi_target": true,
+      "n_tool_calls": 39,
+      "n_notice": 2,
+      "n_missing_node_warn": 0,
+      "first_yml": 5,
+      "first_wrong": 8,
+      "first_target": null,
+      "first_notice": 15,
+      "wrong_names": [
+        "shopify__daily_shop_performance",
+        "shopify__product_performance"
+      ],
+      "reread_yml_after_notice": 3,
+      "nudge_fired": true,
+      "entered_trap": true,
+      "converted": false,
+      "correct_before_notice": false
+    },
+    {
+      "exp": "nudgeh-shopify001-specific-r2",
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 59580,
+      "tools": 27,
+      "wall_s": 104.6,
+      "net": null,
+      "gate_status": "violation",
+      "undeclared_built": [
+        "fct_daily_shop_performance",
+        "fct_product_summary"
+      ],
+      "built_candidates": [],
+      "wrong_name": true,
+      "target_built": false,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [],
+      "scored_all_built": false,
+      "multi_target": true,
+      "n_tool_calls": 27,
+      "n_notice": 3,
+      "n_missing_node_warn": 1,
+      "first_yml": null,
+      "first_wrong": 10,
+      "first_target": null,
+      "first_notice": 12,
+      "wrong_names": [
+        "fct_daily_shop_performance",
+        "fct_product_summary"
+      ],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": true,
+      "entered_trap": true,
+      "converted": false,
+      "correct_before_notice": false
+    },
+    {
+      "exp": "nudgeh-shopify001-specific-r3",
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 43944,
+      "tools": 40,
+      "wall_s": 153.9,
+      "net": null,
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 40,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 14,
+      "first_wrong": null,
+      "first_target": 18,
+      "first_notice": 24,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    }
+  ],
+  "shopify002": [
+    {
+      "exp": "nudgeh-shopify002-off-r1",
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 51760,
+      "tools": 37,
+      "wall_s": 163.5,
+      "net": null,
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__discounts"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [
+        "shopify__discounts"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 37,
+      "n_notice": 0,
+      "n_missing_node_warn": 1,
+      "first_yml": 3,
+      "first_wrong": null,
+      "first_target": 21,
+      "first_notice": null,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudgeh-shopify002-off-r2",
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 56906,
+      "tools": 44,
+      "wall_s": 218.4,
+      "net": null,
+      "gate_status": "violation",
+      "undeclared_built": [
+        "shopify__discount_codes_comprehensive"
+      ],
+      "built_candidates": [],
+      "wrong_name": true,
+      "target_built": false,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [],
+      "scored_all_built": false,
+      "multi_target": true,
+      "n_tool_calls": 44,
+      "n_notice": 0,
+      "n_missing_node_warn": 1,
+      "first_yml": 37,
+      "first_wrong": 26,
+      "first_target": null,
+      "first_notice": null,
+      "wrong_names": [
+        "shopify__discount_codes_comprehensive"
+      ],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": true,
+      "converted": false,
+      "correct_before_notice": false
+    },
+    {
+      "exp": "nudgeh-shopify002-off-r3",
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 67702,
+      "tools": 38,
+      "wall_s": 235.5,
+      "net": null,
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__discounts"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [
+        "shopify__discounts"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 38,
+      "n_notice": 0,
+      "n_missing_node_warn": 1,
+      "first_yml": 6,
+      "first_wrong": null,
+      "first_target": 18,
+      "first_notice": null,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudgeh-shopify002-generic-r1",
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 70927,
+      "tools": 43,
+      "wall_s": 242.9,
+      "net": null,
+      "gate_status": "violation",
+      "undeclared_built": [
+        "shopify__discounts_enriched"
+      ],
+      "built_candidates": [],
+      "wrong_name": true,
+      "target_built": false,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [],
+      "scored_all_built": false,
+      "multi_target": true,
+      "n_tool_calls": 43,
+      "n_notice": 2,
+      "n_missing_node_warn": 1,
+      "first_yml": 4,
+      "first_wrong": 21,
+      "first_target": null,
+      "first_notice": 25,
+      "wrong_names": [
+        "shopify__discounts_enriched"
+      ],
+      "reread_yml_after_notice": 6,
+      "nudge_fired": true,
+      "entered_trap": true,
+      "converted": false,
+      "correct_before_notice": false
+    },
+    {
+      "exp": "nudgeh-shopify002-generic-r2",
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 76283,
+      "tools": 36,
+      "wall_s": 281.8,
+      "net": null,
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__discounts"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [
+        "shopify__discounts"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 36,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 4,
+      "first_wrong": null,
+      "first_target": 16,
+      "first_notice": 17,
+      "wrong_names": [],
+      "reread_yml_after_notice": 1,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudgeh-shopify002-generic-r3",
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 88070,
+      "tools": 69,
+      "wall_s": 346.0,
+      "net": null,
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__discounts"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [
+        "shopify__discounts"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 69,
+      "n_notice": 6,
+      "n_missing_node_warn": 1,
+      "first_yml": 8,
+      "first_wrong": null,
+      "first_target": 19,
+      "first_notice": 20,
+      "wrong_names": [],
+      "reread_yml_after_notice": 13,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudgeh-shopify002-specific-r1",
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 57164,
+      "tools": 33,
+      "wall_s": 158.0,
+      "net": null,
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__discounts"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [
+        "shopify__discounts"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 33,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 15,
+      "first_wrong": null,
+      "first_target": 17,
+      "first_notice": 19,
+      "wrong_names": [],
+      "reread_yml_after_notice": 1,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudgeh-shopify002-specific-r2",
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 63437,
+      "tools": 34,
+      "wall_s": 205.0,
+      "net": null,
+      "gate_status": "violation",
+      "undeclared_built": [
+        "shopify__discounts_with_aggregates"
+      ],
+      "built_candidates": [],
+      "wrong_name": true,
+      "target_built": false,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [],
+      "scored_all_built": false,
+      "multi_target": true,
+      "n_tool_calls": 34,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 31,
+      "first_wrong": 16,
+      "first_target": null,
+      "first_notice": 17,
+      "wrong_names": [
+        "shopify__discounts_with_aggregates"
+      ],
+      "reread_yml_after_notice": 1,
+      "nudge_fired": true,
+      "entered_trap": true,
+      "converted": false,
+      "correct_before_notice": false
+    },
+    {
+      "exp": "nudgeh-shopify002-specific-r3",
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 55580,
+      "tools": 39,
+      "wall_s": 158.2,
+      "net": null,
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__discounts"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [
+        "shopify__discounts"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 39,
+      "n_notice": 2,
+      "n_missing_node_warn": 1,
+      "first_yml": 9,
+      "first_wrong": null,
+      "first_target": 22,
+      "first_notice": 13,
+      "wrong_names": [],
+      "reread_yml_after_notice": 1,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": false
+    }
+  ]
+}

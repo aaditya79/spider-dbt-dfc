@@ -1,0 +1,33 @@
+===== NUDGE FAMILY  tasks=[shopify001 shopify002]  arms=[generic specific]  model=us.anthropic.claude-haiku-4-5-20251001-v1:0
+=====   prefix=nudgeh  N=3 per arm per task =====
+===== start 2026-08-29 20:52:07 =====
+########## TASK: shopify001 ##########
+--- ARM: harness-nudge=generic  task=shopify001 ---
+  RUN  nudgeh-shopify001-generic-r1  attempt 1/3  20:52:07
+       exit=0  status=VALID
+       nudgeh-shopify001-generic-r1	VALID	tokens=45972	tools=42	settled=True	timed_out=False	score=0	net=None
+  RUN  nudgeh-shopify001-generic-r2  attempt 1/3  20:54:31
+       exit=0  status=VALID
+       nudgeh-shopify001-generic-r2	VALID	tokens=35303	tools=35	settled=True	timed_out=False	score=0	net=None
+  RUN  nudgeh-shopify001-generic-r3  attempt 1/3  20:56:34
+       exit=0  status=VALID
+       nudgeh-shopify001-generic-r3	VALID	tokens=52795	tools=41	settled=True	timed_out=False	score=0	net=None
+--- ARM: harness-nudge=specific  task=shopify001 ---
+  RUN  nudgeh-shopify001-specific-r1  attempt 1/3  21:02:01
+       exit=0  status=VALID
+       nudgeh-shopify001-specific-r1	VALID	tokens=59498	tools=39	settled=True	timed_out=False	score=0	net=None
+  RUN  nudgeh-shopify001-specific-r2  attempt 1/3  21:04:50
+       exit=0  status=VALID
+       nudgeh-shopify001-specific-r2	VALID	tokens=59580	tools=27	settled=True	timed_out=False	score=0	net=None
+  RUN  nudgeh-shopify001-specific-r3  attempt 1/3  21:06:35
+       exit=0  status=VALID
+       nudgeh-shopify001-specific-r3	VALID	tokens=43944	tools=40	settled=True	timed_out=False	score=0	net=None
+########## TASK: shopify002 ##########
+--- ARM: harness-nudge=generic  task=shopify002 ---
+  RUN  nudgeh-shopify002-generic-r1  attempt 1/3  21:09:11
+       exit=0  status=VALID
+       nudgeh-shopify002-generic-r1	VALID	tokens=70927	tools=43	settled=True	timed_out=False	score=0	net=None
+  RUN  nudgeh-shopify002-generic-r2  attempt 1/3  21:13:15
+       exit=0  status=VALID
+       nudgeh-shopify002-generic-r2	VALID	tokens=76283	tools=36	settled=True	timed_out=False	score=1	net=None
+  RUN  nudgeh-shopify002-generic-r3  attempt 1/3  21:17:59
