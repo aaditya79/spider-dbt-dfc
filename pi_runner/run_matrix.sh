@@ -17,7 +17,9 @@ if [ ${#TASKS[@]} -eq 0 ]; then
   TASKS=(shopify001 shopify002 shopify_holistic_reporting001 recharge001 recharge002)
 fi
 
-SPIDER=~/Desktop/DAPLab/spider
+# Repo root, derived from this script's own location -- never hardcoded. The tree
+# moved once and every hardcoded copy of the old path broke silently.
+SPIDER="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY=~/miniconda3/envs/spider2/bin/python
 RUNS="$SPIDER/runs/pi"
 TIMEOUT="${TIMEOUT:-2400}"

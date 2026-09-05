@@ -2,12 +2,16 @@
   "recharge001": [
     {
       "exp": "nudge-off-r1",
+      "problems": [],
       "validity": "VALID",
       "score": 0,
       "tokens": 25913,
       "tools": 28,
       "wall_s": 284.9,
       "net": null,
+      "trajectory_rel": "nudge-off-r1/_pi_meta/recharge001/trajectory.jsonl",
+      "produced_db_rel": "nudge-off-r1/recharge001/recharge.duckdb",
+      "gate_message": "1 model(s) built under undeclared name(s) (recharge__charge_details) while 1 declared model(s) remain unbuilt (recharge__charge_line_item_history)",
       "gate_status": "violation",
       "undeclared_built": [
         "recharge__charge_details"
@@ -39,12 +43,16 @@
     },
     {
       "exp": "nudge-off-r2",
+      "problems": [],
       "validity": "VALID",
       "score": 0,
       "tokens": 36057,
       "tools": 22,
       "wall_s": 168.1,
       "net": null,
+      "trajectory_rel": "nudge-off-r2/_pi_meta/recharge001/trajectory.jsonl",
+      "produced_db_rel": "nudge-off-r2/recharge001/recharge.duckdb",
+      "gate_message": "1 model(s) built under undeclared name(s) (recharge__charge_items) while 1 declared model(s) remain unbuilt (recharge__charge_line_item_history)",
       "gate_status": "violation",
       "undeclared_built": [
         "recharge__charge_items"
@@ -76,12 +84,16 @@
     },
     {
       "exp": "nudge-off-r3",
+      "problems": [],
       "validity": "VALID",
       "score": 0,
       "tokens": 19802,
       "tools": 14,
       "wall_s": 123.7,
       "net": null,
+      "trajectory_rel": "nudge-off-r3/_pi_meta/recharge001/trajectory.jsonl",
+      "produced_db_rel": "nudge-off-r3/recharge001/recharge.duckdb",
+      "gate_message": "1 model(s) built under undeclared name(s) (recharge__charge_items) while 1 declared model(s) remain unbuilt (recharge__charge_line_item_history)",
       "gate_status": "violation",
       "undeclared_built": [
         "recharge__charge_items"
@@ -113,12 +125,16 @@
     },
     {
       "exp": "nudge-generic-r1",
+      "problems": [],
       "validity": "VALID",
       "score": 0,
       "tokens": 40313,
       "tools": 26,
       "wall_s": 136.5,
       "net": null,
+      "trajectory_rel": "nudge-generic-r1/_pi_meta/recharge001/trajectory.jsonl",
+      "produced_db_rel": "nudge-generic-r1/recharge001/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
       "gate_status": "pass",
       "undeclared_built": [],
       "built_candidates": [
@@ -150,12 +166,16 @@
     },
     {
       "exp": "nudge-generic-r2",
+      "problems": [],
       "validity": "VALID",
       "score": 0,
       "tokens": 34880,
       "tools": 36,
       "wall_s": 299.6,
       "net": null,
+      "trajectory_rel": "nudge-generic-r2/_pi_meta/recharge001/trajectory.jsonl",
+      "produced_db_rel": "nudge-generic-r2/recharge001/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
       "gate_status": "pass",
       "undeclared_built": [],
       "built_candidates": [
@@ -189,12 +209,16 @@
     },
     {
       "exp": "nudge-generic-r3",
+      "problems": [],
       "validity": "VALID",
       "score": 0,
       "tokens": 23863,
       "tools": 20,
       "wall_s": 179.7,
       "net": null,
+      "trajectory_rel": "nudge-generic-r3/_pi_meta/recharge001/trajectory.jsonl",
+      "produced_db_rel": "nudge-generic-r3/recharge001/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
       "gate_status": "pass",
       "undeclared_built": [],
       "built_candidates": [
@@ -226,12 +250,16 @@
     },
     {
       "exp": "nudge-specific-r1",
+      "problems": [],
       "validity": "VALID",
       "score": 0,
       "tokens": 34490,
       "tools": 28,
       "wall_s": 266.1,
       "net": null,
+      "trajectory_rel": "nudge-specific-r1/_pi_meta/recharge001/trajectory.jsonl",
+      "produced_db_rel": "nudge-specific-r1/recharge001/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
       "gate_status": "pass",
       "undeclared_built": [],
       "built_candidates": [
@@ -265,12 +293,16 @@
     },
     {
       "exp": "nudge-specific-r2",
+      "problems": [],
       "validity": "VALID",
       "score": 0,
       "tokens": 31686,
       "tools": 18,
       "wall_s": 214.6,
       "net": null,
+      "trajectory_rel": "nudge-specific-r2/_pi_meta/recharge001/trajectory.jsonl",
+      "produced_db_rel": "nudge-specific-r2/recharge001/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
       "gate_status": "pass",
       "undeclared_built": [],
       "built_candidates": [
@@ -304,12 +336,16 @@
     },
     {
       "exp": "nudge-specific-r3",
+      "problems": [],
       "validity": "VALID",
       "score": 0,
       "tokens": 29308,
       "tools": 27,
       "wall_s": 219.4,
       "net": null,
+      "trajectory_rel": "nudge-specific-r3/_pi_meta/recharge001/trajectory.jsonl",
+      "produced_db_rel": "nudge-specific-r3/recharge001/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
       "gate_status": "pass",
       "undeclared_built": [],
       "built_candidates": [

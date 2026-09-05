@@ -15,7 +15,15 @@ Statuses:
   MISSING         no record on disk / unparseable
 
 Only VALID is `done`. Everything else is retryable.
+
+PATHS: the trajectory is located from the run's on-disk LAYOUT, not from the
+absolute path stored in the record. run_task.py writes absolute paths at run time;
+the tree moved once and every one of them dangled, which silently switched network
+detection off -- a genuine VOID_NETWORK then classified as VOID_TIMEOUT, i.e. an
+infra failure recorded as behaviour, which is exactly what this module exists to
+prevent. See resolve_trajectory().
 """
+import glob
 import json
 import os
 import sys
@@ -38,9 +46,44 @@ def _total_tokens(rec):
     return total
 
 
-def _network_error(rec):
+def resolve_trajectory(stdout_path, rec):
+    """Locate trajectory.jsonl for a record, independent of where the repo lives.
+
+    Layout:  <runs_root>/<exp>.stdout.json
+             <runs_root>/<exp>/_pi_meta/<instance>/trajectory.jsonl
+
+    Tried in order: the stored path re-rooted onto this runs_root (exact artifact,
+    stale prefix discarded), the canonical layout, an unambiguous glob, then the
+    stored path verbatim for a tree that never moved. Returns None if none exist --
+    callers must treat that as "unknown", never as "clean".
+    """
+    runs_root = os.path.dirname(os.path.abspath(stdout_path))
+    base = os.path.basename(stdout_path)
+    exp = base[:-len(".stdout.json")] if base.endswith(".stdout.json") else None
+    stored = rec.get("trajectory")
+    cands = []
+    if stored and exp:
+        parts = stored.replace("\\", "/").split("/")
+        if exp in parts:
+            i = len(parts) - 1 - parts[::-1].index(exp)
+            cands.append(os.path.join(runs_root, *parts[i:]))
+    if exp and rec.get("instance_id"):
+        cands.append(os.path.join(runs_root, exp, "_pi_meta",
+                                  rec["instance_id"], "trajectory.jsonl"))
+    if exp:
+        hits = sorted(glob.glob(os.path.join(runs_root, exp, "_pi_meta", "*",
+                                             "trajectory.jsonl")))
+        if len(hits) == 1:
+            cands.append(hits[0])
+    cands.append(stored)
+    for c in cands:
+        if c and os.path.isfile(c):
+            return c
+    return None
+
+
+def _network_error(rec, path=None):
     """Scan the trajectory for transport-level failures (errorMessage fields only)."""
-    path = rec.get("trajectory")
     if not path or not os.path.isfile(path):
         return None
     try:
@@ -66,8 +109,12 @@ def _network_error(rec):
     return None
 
 
-def classify(path):
-    """-> (status, detail_dict). See module docstring."""
+def classify(path, trajectory=None):
+    """-> (status, detail_dict). See module docstring.
+
+    `trajectory` lets a caller that already resolved the path pass it in; otherwise
+    it is resolved here from the layout. Never read straight from the record.
+    """
     if not path or not os.path.isfile(path) or os.path.getsize(path) == 0:
         return "MISSING", {}
     try:
@@ -80,12 +127,17 @@ def classify(path):
     tools = int(rec.get("n_tool_calls_total") or 0)
     settled = bool(rec.get("settled"))
     timed_out = bool(rec.get("timed_out"))
-    net = _network_error(rec)
+    traj = trajectory or resolve_trajectory(path, rec)
+    net = _network_error(rec, traj)
     detail = {
         "tokens": tokens, "tools": tools, "settled": settled,
         "timed_out": timed_out, "net_error": net, "score": rec.get("score"),
-        "wall_s": rec.get("wall_clock_s"),
+        "wall_s": rec.get("wall_clock_s"), "trajectory": traj,
     }
+    if traj is None:
+        # Not fatal here (token/settle fields alone can classify most runs), but the
+        # caller must be able to see that the network check could not run.
+        detail["trajectory_unresolved"] = True
 
     # Never reached the model at all.
     if tokens == 0 and tools == 0:
@@ -110,7 +162,8 @@ def main():
         print(f"{label}\t{status}\t"
               f"tokens={detail.get('tokens')}\ttools={detail.get('tools')}\t"
               f"settled={detail.get('settled')}\ttimed_out={detail.get('timed_out')}\t"
-              f"score={detail.get('score')}\tnet={detail.get('net_error')}")
+              f"score={detail.get('score')}\tnet={detail.get('net_error')}"
+              + ("\tTRAJECTORY-UNRESOLVED" if detail.get("trajectory_unresolved") else ""))
         if status != "VALID":
             worst = 1
     return worst

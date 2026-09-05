@@ -14,7 +14,9 @@
 #     attempt into a dead network.
 set -u
 N="${1:-3}"
-SPIDER=~/Desktop/DAPLab/spider
+# Repo root, derived from this script's own location -- never hardcoded. The tree
+# moved once and every hardcoded copy of the old path broke silently.
+SPIDER="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY=~/miniconda3/envs/spider2/bin/python
 RUNS="$SPIDER/runs/pi"
 VALIDITY="$SPIDER/pi_runner/nudge_validity.py"
@@ -28,9 +30,10 @@ BEDROCK_HOST="bedrock-runtime.us-east-1.amazonaws.com"
 mkdir -p "$VOIDDIR"
 
 status_of () {  # -> VALID | VOID_* | MISSING
-  "$PY" - "$1" <<'PYX' 2>/dev/null || echo MISSING
+  "$PY" - "$1" "$SPIDER" <<'PYX' 2>/dev/null || echo MISSING
 import sys, os
-sys.path.insert(0, os.path.expanduser("~/Desktop/DAPLab/spider/pi_runner"))
+# argv[2] is $SPIDER: the heredoc is quoted, so the shell cannot expand it here.
+sys.path.insert(0, os.path.join(sys.argv[2], "pi_runner"))
 from nudge_validity import classify
 print(classify(sys.argv[1])[0])
 PYX

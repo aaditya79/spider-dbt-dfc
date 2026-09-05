@@ -42,7 +42,7 @@ import time
 # ---------------------------------------------------------------- paths ----
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SPIDER_ROOT = os.path.dirname(HERE)                       # ~/Desktop/DAPLab/spider
+SPIDER_ROOT = os.path.dirname(HERE)             # repo root, wherever it lives
 SPIDER2 = os.path.join(SPIDER_ROOT, "Spider2")
 DBT_DIR = os.path.join(SPIDER2, "spider2-dbt")
 EXAMPLES = os.path.join(DBT_DIR, "examples")

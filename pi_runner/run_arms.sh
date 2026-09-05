@@ -12,7 +12,9 @@
 set -u
 
 ARM="${1:?arm required: A or B}"
-SPIDER=~/Desktop/DAPLab/spider
+# Repo root, derived from this script's own location -- never hardcoded. The tree
+# moved once and every hardcoded copy of the old path broke silently.
+SPIDER="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY=~/miniconda3/envs/spider2/bin/python
 RUNS="$SPIDER/runs/pi"
 export SCAFFOLD="/private/tmp/claude-501/-Users-aadityapai-Desktop-DAPLab-spider/748bea9e-8047-461d-819d-df2245cf9bf8/scratchpad/schema_first_scaffold.txt"
@@ -58,11 +60,13 @@ if [ "$ARM" = "A" ]; then
     # (a) current scaffold: default ORIENTATION, no override
     run_cell "armA-cur-${KEY}-${TASK}" "$TASK" "$MODEL"
     # (b) schema-first scaffold: full prompt override, instruction substituted verbatim
-    PROMPT=$("$PY" - "$TASK" <<'EOF'
+    PROMPT=$("$PY" - "$TASK" "$SPIDER" <<'EOF'
 import json, sys, os
 task = sys.argv[1]
 scaffold = open(os.environ["SCAFFOLD"]).read()
-tasks = os.path.expanduser("~/Desktop/DAPLab/spider/Spider2/spider2-dbt/examples/spider2-dbt.jsonl")
+# argv[2] is $SPIDER: the heredoc is quoted, so the shell cannot expand it here.
+tasks = os.path.join(sys.argv[2], "Spider2", "spider2-dbt", "examples",
+                     "spider2-dbt.jsonl")
 for line in open(tasks):
     line = line.strip()
     if not line: continue

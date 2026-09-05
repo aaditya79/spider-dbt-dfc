@@ -23,7 +23,17 @@ Per trial:
 SCOPE: naming only. dbt emits no signal for recharge001's content defect
 ([6]amount), so a name-correct run can still score 0. Official score is reported
 but is not the quantity this intervention targets.
+
+PATHS: every artifact is located from the on-disk LAYOUT under <runs_root>, never
+from the absolute paths stored in the record. run_task.py writes absolute paths at
+run time; the tree moved once (~/Desktop/DAPLab/spider -> "Desktop - Aaditya's
+MacBook Pro/DAPLab/spider") and every stored path dangled. Because the readers
+treated an unopenable file as "nothing to report", the whole table rendered as a
+clean, plausible page of ZEROS. A run whose artifacts cannot be located is now
+UNREADABLE -- reported, excluded from every denominator, and a non-zero exit --
+never silently counted as a clean result. See resolve_run_paths().
 """
+import glob
 import json
 import os
 import re
@@ -63,6 +73,86 @@ GOLD_SPEC = os.path.join(SPIDER, "Spider2", "spider2-dbt", "evaluation_suite",
                          "gold", "spider2_eval.jsonl")
 
 
+class UnreadableRun(Exception):
+    """A run's artifacts could not be located or opened.
+
+    Raised instead of returning empty counters, because that is the whole bug this
+    guards against: a run we cannot read must never be indistinguishable from a run
+    that had nothing in it.
+    """
+
+
+def _reroot(stored, runs_root, exp):
+    """Re-root a run-time absolute path onto the current runs_root.
+
+    Only the PREFIX of a stored path goes stale when the tree moves; the tail
+    <exp>/.../<file> still names the exact artifact the run used. That precision
+    matters: nudge-off-r1 holds both `recharge.duckdb` and a stray duplicate
+    `recharge (1).duckdb`, and only the record says which one was scored.
+    """
+    if not stored:
+        return None
+    parts = stored.replace("\\", "/").split("/")
+    if exp not in parts:
+        return None
+    i = len(parts) - 1 - parts[::-1].index(exp)      # last occurrence of the run id
+    return os.path.join(runs_root, *parts[i:])
+
+
+def _first_existing(*cands):
+    for c in cands:
+        if c and os.path.exists(c):
+            return c
+    return None
+
+
+def _unique_glob(pattern):
+    """A glob hit, but only when it is unambiguous -- otherwise let the caller flag it."""
+    hits = sorted(glob.glob(pattern))
+    return hits[0] if len(hits) == 1 else None
+
+
+def resolve_run_paths(runs_root, exp, instance_id, rec):
+    """Locate a run's trajectory and produced DuckDB. -> (paths, problems).
+
+    Resolution order, most specific first:
+      1. the stored path re-rooted onto runs_root  (exact artifact, prefix-independent)
+      2. the canonical layout under <runs_root>/<exp>/
+             <exp>/_pi_meta/<instance>/trajectory.jsonl
+             <exp>/<instance>/<db>.duckdb
+      3. an unambiguous glob, for a layout neither of the above predicts
+      4. the stored path verbatim, for a tree that never moved
+
+    `problems` is non-empty when something could not be pinned down; the caller
+    marks the run UNREADABLE rather than scoring it as empty.
+    """
+    run_root = os.path.join(runs_root, exp)
+    meta_glob = os.path.join(run_root, "_pi_meta", "*", "trajectory.jsonl")
+    db_glob = os.path.join(run_root, "*", "*.duckdb")
+
+    traj = _first_existing(
+        _reroot(rec.get("trajectory"), runs_root, exp),
+        os.path.join(run_root, "_pi_meta", instance_id, "trajectory.jsonl"),
+        rec.get("trajectory"),
+    ) or _unique_glob(meta_glob)
+
+    db = _first_existing(
+        _reroot(rec.get("produced_db"), runs_root, exp),
+        rec.get("produced_db"),
+    ) or _unique_glob(os.path.join(run_root, instance_id, "*.duckdb"))
+
+    problems = []
+    if traj is None:
+        n = len(glob.glob(meta_glob))
+        problems.append(f"trajectory.jsonl unresolved under {run_root}/_pi_meta/ "
+                        f"({n} candidate(s))")
+    if db is None:
+        n = len(glob.glob(db_glob))
+        problems.append(f"produced .duckdb unresolved under {run_root}/ "
+                        f"({n} candidate(s))")
+    return {"trajectory": traj, "produced_db": db, "run_dir": os.path.join(run_root, instance_id)}, problems
+
+
 def scored_targets(instance_id):
     """The tables duckdb_match actually grades (condition_tabs), from the gold spec.
 
@@ -85,17 +175,19 @@ def scored_targets(instance_id):
 
 
 def materialized_tables(db_path):
+    """Tables in the produced DuckDB. Raises rather than returning an empty set:
+    'could not open the database' and 'the agent built nothing' are opposite facts."""
     if not db_path or not os.path.exists(db_path):
-        return set()
+        raise UnreadableRun(f"produced DuckDB not readable: {db_path!r}")
+    import duckdb
     try:
-        import duckdb
         con = duckdb.connect(db_path, read_only=True)
-        try:
-            return {r[0] for r in con.execute("SHOW TABLES").fetchall()}
-        finally:
-            con.close()
-    except Exception:
-        return set()
+    except Exception as exc:
+        raise UnreadableRun(f"could not open {db_path}: {type(exc).__name__}: {exc}")
+    try:
+        return {r[0] for r in con.execute("SHOW TABLES").fetchall()}
+    finally:
+        con.close()
 
 
 def declared_unshipped(instance_id):
@@ -110,7 +202,7 @@ def scan_trajectory(path, targets, declared):
            "first_yml": None, "first_wrong": None, "first_target": None,
            "first_notice": None, "wrong_names": [], "reread_yml_after_notice": 0}
     if not path or not os.path.isfile(path):
-        return out
+        raise UnreadableRun(f"trajectory not readable: {path!r}")
     wrong = []
     idx = 0
     with open(path, errors="replace") as fh:
@@ -158,21 +250,54 @@ def scan_trajectory(path, targets, declared):
 
 def row(exp, instance_id, runs_root):
     out_json = os.path.join(runs_root, f"{exp}.stdout.json")
-    status, detail = classify(out_json)
-    r = {"exp": exp, "validity": status, "score": detail.get("score"),
-         "tokens": detail.get("tokens"), "tools": detail.get("tools"),
-         "wall_s": detail.get("wall_s"), "net": detail.get("net_error")}
+    r = {"exp": exp, "problems": []}
+    if not os.path.isfile(out_json) or os.path.getsize(out_json) == 0:
+        r.update({"validity": "MISSING", "problems": [f"no record at {exp}.stdout.json"]})
+        return r
+    try:
+        rec = json.load(open(out_json))
+    except Exception as exc:
+        r.update({"validity": "MISSING",
+                  "problems": [f"unparseable {exp}.stdout.json: {exc}"]})
+        return r
+
+    paths, problems = resolve_run_paths(runs_root, exp, instance_id, rec)
+    status, detail = classify(out_json, trajectory=paths["trajectory"])
+    r.update({"validity": status, "score": detail.get("score"),
+              "tokens": detail.get("tokens"), "tools": detail.get("tools"),
+              "wall_s": detail.get("wall_s"), "net": detail.get("net_error"),
+              "problems": problems})
+    for key in ("trajectory", "produced_db"):
+        if paths[key]:
+            r[key + "_rel"] = os.path.relpath(paths[key], runs_root)
     if status == "MISSING":
         return r
-    rec = json.load(open(out_json))
+    if problems:
+        r["validity"] = "UNREADABLE"      # counted nowhere; reported loudly
+        return r
+
     fixture = os.path.join(ng.EXAMPLES, instance_id)
     targets = declared_unshipped(instance_id)
     declared = ng._declared_models(fixture)
 
     try:
-        gate = ng.check_namegate(rec.get("produced_db"))
-    except Exception as e:
-        gate = {"status": "error", "message": f"{type(e).__name__}: {e}"}
+        return _measure(r, rec, paths, instance_id, targets, declared)
+    except UnreadableRun as exc:
+        r["validity"] = "UNREADABLE"
+        r["problems"] = problems + [str(exc)]
+        return r
+    except Exception as exc:                       # a reader bug must not read as data
+        r["validity"] = "UNREADABLE"
+        r["problems"] = problems + [f"{type(exc).__name__}: {exc}"]
+        return r
+
+
+def _measure(r, rec, paths, instance_id, targets, declared):
+    """The actual measurement, once every artifact is known to be readable."""
+    gate = ng.check_namegate(paths["produced_db"])
+    if gate.get("status") == "error" and "not found" in (gate.get("message") or ""):
+        raise UnreadableRun(f"name-gate could not read the DB: {gate.get('message')}")
+    r["gate_message"] = gate.get("message")
     r["gate_status"] = gate.get("status")
     r["undeclared_built"] = gate.get("undeclared_built") or []
     r["built_candidates"] = gate.get("built_candidates") or []
@@ -180,13 +305,13 @@ def row(exp, instance_id, runs_root):
     r["target_built"] = bool(r["built_candidates"])
 
     scored = scored_targets(instance_id)
-    mat = materialized_tables(rec.get("produced_db"))
+    mat = materialized_tables(paths["produced_db"])
     r["scored_targets"] = scored
     r["scored_built"] = sorted(t for t in scored if t in mat)
     r["scored_all_built"] = bool(scored) and all(t in mat for t in scored)
     r["multi_target"] = len(targets) > 1
 
-    s = scan_trajectory(rec.get("trajectory"), set(targets), declared)
+    s = scan_trajectory(paths["trajectory"], set(targets), declared)
     r.update(s)
     fn, ft, fw = s["first_notice"], s["first_target"], s["first_wrong"]
     r["nudge_fired"] = s["n_notice"] > 0
@@ -221,6 +346,12 @@ def main():
             continue
         all_rows[task] = rows
 
+    if not all_rows:
+        sys.stderr.write(
+            f"ERROR: no run records for {tasks} under {runs_root} (prefix {PREFIX!r}).\n"
+            f"Nothing was measured -- this is an empty result, not a zero result.\n")
+        return 2
+
     for task, rows in all_rows.items():
         tgts = declared_unshipped(task)
         print("#" * 100)
@@ -231,8 +362,10 @@ def main():
                f"{'conv':<6}{'mnWarn':<8}{'score':<6}")
         print(hdr); print("-" * len(hdr))
         for r in rows:
-            if r["validity"] == "MISSING":
-                print(f"{r['exp']:<32}{'MISSING':<9}"); continue
+            if r["validity"] in ("MISSING", "UNREADABLE"):
+                why = "; ".join(r.get("problems") or []) or "no record on disk"
+                print(f"{r['exp']:<32}{r['validity']:<9}!! {why}")
+                continue
             v = "yes" if r["validity"] == "VALID" else r["validity"]
             print(f"{r['exp']:<32}{v:<9}{str(r['wrong_name']):<11}"
                   f"{str(r['target_built']):<10}{str(r.get('scored_all_built')):<8}"
@@ -267,24 +400,58 @@ def main():
         json.dump(all_rows, fh, indent=2)
     print(f"\nrows -> {os.path.join(runs_root, out_name)}")
 
+    return report_unread(all_rows, runs_root)
+
+
+def report_unread(all_rows, runs_root):
+    """Say out loud what was not counted, and fail the exit code if we could not read it.
+
+    Silence here was the original defect: unresolvable paths produced zeros that
+    looked like findings. Anything excluded from a denominator gets named.
+    """
+    unreadable = [r for rows in all_rows.values() for r in rows
+                  if r["validity"] == "UNREADABLE"]
+    missing = [r for rows in all_rows.values() for r in rows
+               if r["validity"] == "MISSING"]
+    if not (unreadable or missing):
+        return 0
+    print("\n" + "!" * 100)
+    print(f"NOT COUNTED: {len(unreadable)} unreadable, {len(missing)} missing "
+          f"(excluded from every denominator above)")
+    print("!" * 100)
+    for r in unreadable + missing:
+        print(f"  {r['validity']:<11}{r['exp']:<32}"
+              f"{'; '.join(r.get('problems') or ['no record on disk'])}")
+    if unreadable:
+        print(f"\nERROR: {len(unreadable)} run(s) exist but could not be read. The numbers "
+              f"above are\nincomplete -- fix the artifacts or the resolver before quoting "
+              f"them. (exit 2)")
+        return 2
+    print(f"\n({len(missing)} run(s) never produced a record. That is a fact about the "
+          f"batch,\nnot a read failure, so it is reported but not an error.)")
+    return 0
+
 
 def arm_table(rows, n_per_arm):
-    print(f"{'arm':<11}{'valid':<9}{'VOID':<7}{'wrong-name':<16}"
+    print(f"{'arm':<11}{'valid':<9}{'VOID':<7}{'UNREAD':<8}{'wrong-name':<16}"
           f"{'SCORED built':<14}{'trap':<8}"
           f"{'conv/trap':<12}{'conv/trials':<13}{'official pass'}")
     for a in ARMS:
         ar = [r for r in rows if f"-{a}-r" in r["exp"]]
         v = [r for r in ar if r["validity"] == "VALID"]
-        void = [r for r in ar if r["validity"] not in ("VALID", "MISSING")]
+        void = [r for r in ar if str(r["validity"]).startswith("VOID")]
+        # Unreadable/missing runs are NOT void trials -- void is a fact about the run,
+        # unreadable is a fact about our access to it. Keeping them apart is the point.
+        unread = [r for r in ar if r["validity"] in ("UNREADABLE", "MISSING")]
         if not v:
-            print(f"{a:<11}{'0':<9}{len(void):<7}NO VALID TRIALS")
+            print(f"{a:<11}{'0':<9}{len(void):<7}{len(unread):<8}NO VALID TRIALS")
             continue
         wn = sum(1 for r in v if r["wrong_name"])
         tr = sum(1 for r in v if r["entered_trap"])
         cv = sum(1 for r in v if r["converted"])
         ps = sum(1 for r in v if r["score"] == 1)
         sc = sum(1 for r in v if r.get("scored_all_built"))
-        print(f"{a:<11}{f'{len(v)}/{len(ar)}':<9}{len(void):<7}"
+        print(f"{a:<11}{f'{len(v)}/{len(ar)}':<9}{len(void):<7}{len(unread):<8}"
               f"{f'{wn}/{len(v)} ({wn/len(v):.0%})':<16}"
               f"{f'{sc}/{len(v)}':<14}{f'{tr}/{len(v)}':<8}"
               f"{(f'{cv}/{tr}' if tr else 'n/a'):<12}"
@@ -341,4 +508,4 @@ def overfit_flag(task, rows):
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)
