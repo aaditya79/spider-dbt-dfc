@@ -1,7 +1,6 @@
 # The Pi↔dbt harness: what it is, and what we changed
 
-For two engineers who know Pi but have not seen this integration. Everything below
-was read off the code on disk; every claim carries a `file:line`. Where the repo and
+Everything below was read off the code on disk; every claim carries a `file:line`. Where the repo and
 the working tree disagree, the working tree wins and that is called out.
 
 **Read this next to the code.** The single file that matters most is
