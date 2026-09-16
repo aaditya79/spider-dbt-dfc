@@ -30,6 +30,8 @@ Run dir layout matches score_run.py's expectations exactly:
 
 import argparse
 import glob
+import importlib
+import importlib.util
 import json
 import os
 import queue
@@ -48,6 +50,10 @@ DBT_DIR = os.path.join(SPIDER2, "spider2-dbt")
 EXAMPLES = os.path.join(DBT_DIR, "examples")
 TASKS_JSONL = os.path.join(EXAMPLES, "spider2-dbt.jsonl")
 METHODS_DBT = os.path.join(SPIDER2, "methods", "spider-agent-dbt")
+# Tracked mirror of the DFC checkers. Spider2/ is gitignored (7.1 GB upstream clone),
+# so on a fresh clone METHODS_DBT does not exist and the checkers would be
+# unimportable even though they ship here. See _import_agent_module().
+DFC_MIRROR = os.path.join(SPIDER_ROOT, "dfc")
 SCORE_RUN = os.path.join(METHODS_DBT, "score_run.py")
 GOLD_DIR = os.path.join(DBT_DIR, "evaluation_suite", "gold")
 EVAL_JSONL = os.path.join(GOLD_DIR, "spider2_eval.jsonl")
@@ -148,6 +154,54 @@ ORIENTATION = (
 DFC_POLICIES = ("recharge001", "idtype", "enum", "namegate")
 
 
+def _import_agent_module(modname):
+    """Import `spider_agent.agent.<modname>`, preferring the Spider2 clone.
+
+    Primary source is METHODS_DBT -- the canonical location, unchanged. It is only
+    when that import FAILS that the tracked `dfc/` mirror is tried, so an installed
+    Spider2 checker always wins and nothing about the existing path changes.
+
+    The fallback exists because Spider2/ is gitignored: a fresh clone has the
+    checkers (dfc/spider_agent/agent/) but not the tree they normally live in.
+
+    The fallback loads the file DIRECTLY rather than re-running package resolution,
+    because sys.path order is not enough to win. `spider_agent.agent` is a REGULAR
+    package on the Spider2 side (it ships an __init__.py) while the mirror has none,
+    so it is a namespace portion; when a regular package and a namespace portion both
+    match, the regular package wins REGARDLESS of path order. A Spider2 clone that
+    exists but has no checkers installed would therefore keep shadowing the mirror
+    forever. Loading by file location sidesteps package semantics entirely, which is
+    safe here: no checker imports another.
+    """
+    if METHODS_DBT not in sys.path:
+        sys.path.insert(0, METHODS_DBT)
+    full = f"spider_agent.agent.{modname}"
+    try:
+        return importlib.import_module(full)
+    except ImportError as primary:
+        path = os.path.join(DFC_MIRROR, "spider_agent", "agent", modname + ".py")
+        if not os.path.isfile(path):
+            raise SystemExit(
+                f"cannot import checker {full!r} from either location:\n"
+                f"  Spider2 clone : {METHODS_DBT}\n"
+                f"  tracked mirror: {path} (absent)\n"
+                f"  primary error : {type(primary).__name__}: {primary}")
+        # The mirror copy of dfc_check_namegate derives its fixture directory from its
+        # own file depth, which is wrong from dfc/. The runner already knows the right
+        # one, so hand it over -- setdefault, so an explicit override still wins.
+        os.environ.setdefault("SPIDER2_EXAMPLES", EXAMPLES)
+        spec = importlib.util.spec_from_file_location(full, path)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[full] = mod          # so chk.__module__ resolves back to this
+        try:
+            spec.loader.exec_module(mod)
+        except Exception as exc:
+            del sys.modules[full]
+            raise SystemExit(f"checker {full!r} failed to load from the tracked "
+                             f"mirror {path}: {type(exc).__name__}: {exc}")
+        return mod
+
+
 def _load_dfc_checker(name):
     """Resolve a --dfc-policy name to its (checker, retry_message) pair.
 
@@ -173,19 +227,17 @@ def _load_dfc_checker(name):
     """
     if name not in DFC_POLICIES:
         raise SystemExit(f"unknown --dfc-policy {name!r} (known: {', '.join(DFC_POLICIES)})")
-    if METHODS_DBT not in sys.path:
-        sys.path.insert(0, METHODS_DBT)
 
     if name == "recharge001":
-        from spider_agent.agent.dfc_check import check_recharge001_discounts
-        return check_recharge001_discounts, dfc_retry_message
+        mod = _import_agent_module("dfc_check")
+        return mod.check_recharge001_discounts, dfc_retry_message
     if name == "idtype":
-        from spider_agent.agent import dfc_check_idtype as mod
+        mod = _import_agent_module("dfc_check_idtype")
         return mod.check_recharge001_id_types, mod.retry_message
     if name == "namegate":
-        from spider_agent.agent import dfc_check_namegate as mod
+        mod = _import_agent_module("dfc_check_namegate")
         return mod.check_namegate, mod.retry_message
-    from spider_agent.agent import dfc_check_enum as mod
+    mod = _import_agent_module("dfc_check_enum")
     return mod.check_recharge001_line_item_type, mod.retry_message
 
 

@@ -57,7 +57,13 @@ import yaml
 _HERE = os.path.dirname(os.path.abspath(__file__))                       # .../spider_agent/agent
 _METHODS_DBT = os.path.abspath(os.path.join(_HERE, "..", ".."))          # .../spider-agent-dbt
 _SPIDER2 = os.path.abspath(os.path.join(_METHODS_DBT, "..", ".."))       # .../Spider2
-EXAMPLES = os.path.join(_SPIDER2, "spider2-dbt", "examples")
+# The derivation above assumes this file sits at its canonical depth inside the
+# Spider2 clone. It does not when the file is loaded from the tracked `dfc/` mirror
+# (dfc/spider_agent/agent/), where walking up four levels lands outside the repo and
+# every check returns "pristine fixture not found". SPIDER2_EXAMPLES overrides it, so
+# the mirror is usable without a Spider2 clone at the expected relative path.
+EXAMPLES = (os.environ.get("SPIDER2_EXAMPLES")
+            or os.path.join(_SPIDER2, "spider2-dbt", "examples"))
 
 
 def _declared_models(project_dir):

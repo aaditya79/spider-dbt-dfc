@@ -377,5 +377,1111 @@
       "converted": true,
       "correct_before_notice": false
     }
+  ],
+  "shopify001": [
+    {
+      "exp": "nudge-shopify001-off-r1",
+      "problems": [],
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 24499,
+      "tools": 20,
+      "wall_s": 145.2,
+      "net": null,
+      "trajectory_rel": "nudge-shopify001-off-r1/_pi_meta/shopify001/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify001-off-r1/shopify001/shopify.duckdb",
+      "gate_message": "all 2 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 20,
+      "n_notice": 0,
+      "n_missing_node_warn": 1,
+      "first_yml": 11,
+      "first_wrong": null,
+      "first_target": 13,
+      "first_notice": null,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify001-off-r2",
+      "problems": [],
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 34423,
+      "tools": 23,
+      "wall_s": 139.2,
+      "net": null,
+      "trajectory_rel": "nudge-shopify001-off-r2/_pi_meta/shopify001/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify001-off-r2/shopify001/shopify.duckdb",
+      "gate_message": "all 2 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 23,
+      "n_notice": 0,
+      "n_missing_node_warn": 1,
+      "first_yml": 13,
+      "first_wrong": null,
+      "first_target": 18,
+      "first_notice": null,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify001-off-r3",
+      "problems": [],
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 20171,
+      "tools": 14,
+      "wall_s": 94.3,
+      "net": null,
+      "trajectory_rel": "nudge-shopify001-off-r3/_pi_meta/shopify001/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify001-off-r3/shopify001/shopify.duckdb",
+      "gate_message": "all 2 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 14,
+      "n_notice": 0,
+      "n_missing_node_warn": 1,
+      "first_yml": null,
+      "first_wrong": null,
+      "first_target": 9,
+      "first_notice": null,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify001-generic-r1",
+      "problems": [],
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 30276,
+      "tools": 32,
+      "wall_s": 127.0,
+      "net": null,
+      "trajectory_rel": "nudge-shopify001-generic-r1/_pi_meta/shopify001/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify001-generic-r1/shopify001/shopify.duckdb",
+      "gate_message": "all 2 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 32,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 12,
+      "first_wrong": null,
+      "first_target": 27,
+      "first_notice": 29,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify001-generic-r2",
+      "problems": [],
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 28193,
+      "tools": 24,
+      "wall_s": 122.0,
+      "net": null,
+      "trajectory_rel": "nudge-shopify001-generic-r2/_pi_meta/shopify001/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify001-generic-r2/shopify001/shopify.duckdb",
+      "gate_message": "all 2 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 24,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 11,
+      "first_wrong": null,
+      "first_target": 18,
+      "first_notice": 21,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify001-generic-r3",
+      "problems": [],
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 27928,
+      "tools": 25,
+      "wall_s": 114.1,
+      "net": null,
+      "trajectory_rel": "nudge-shopify001-generic-r3/_pi_meta/shopify001/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify001-generic-r3/shopify001/shopify.duckdb",
+      "gate_message": "all 2 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 25,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 13,
+      "first_wrong": null,
+      "first_target": 18,
+      "first_notice": 22,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify001-specific-r1",
+      "problems": [],
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 29061,
+      "tools": 24,
+      "wall_s": 109.9,
+      "net": null,
+      "trajectory_rel": "nudge-shopify001-specific-r1/_pi_meta/shopify001/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify001-specific-r1/shopify001/shopify.duckdb",
+      "gate_message": "all 2 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 24,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 12,
+      "first_wrong": null,
+      "first_target": 20,
+      "first_notice": 22,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify001-specific-r2",
+      "problems": [],
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 26170,
+      "tools": 22,
+      "wall_s": 103.7,
+      "net": null,
+      "trajectory_rel": "nudge-shopify001-specific-r2/_pi_meta/shopify001/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify001-specific-r2/shopify001/shopify.duckdb",
+      "gate_message": "all 2 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 22,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 12,
+      "first_wrong": null,
+      "first_target": 17,
+      "first_notice": 19,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify001-specific-r3",
+      "problems": [],
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 25298,
+      "tools": 15,
+      "wall_s": 107.2,
+      "net": null,
+      "trajectory_rel": "nudge-shopify001-specific-r3/_pi_meta/shopify001/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify001-specific-r3/shopify001/shopify.duckdb",
+      "gate_message": "all 2 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__products",
+        "shopify__daily_shop"
+      ],
+      "scored_built": [
+        "shopify__daily_shop",
+        "shopify__products"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 15,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 6,
+      "first_wrong": null,
+      "first_target": 10,
+      "first_notice": 12,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    }
+  ],
+  "shopify002": [
+    {
+      "exp": "nudge-shopify002-off-r1",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 24709,
+      "tools": 21,
+      "wall_s": 108.4,
+      "net": null,
+      "trajectory_rel": "nudge-shopify002-off-r1/_pi_meta/shopify002/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify002-off-r1/shopify002/shopify.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__discounts"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [
+        "shopify__discounts"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 21,
+      "n_notice": 0,
+      "n_missing_node_warn": 1,
+      "first_yml": 10,
+      "first_wrong": null,
+      "first_target": 17,
+      "first_notice": null,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify002-off-r2",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 23372,
+      "tools": 18,
+      "wall_s": 134.2,
+      "net": null,
+      "trajectory_rel": "nudge-shopify002-off-r2/_pi_meta/shopify002/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify002-off-r2/shopify002/shopify.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__discounts"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [
+        "shopify__discounts"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 18,
+      "n_notice": 0,
+      "n_missing_node_warn": 1,
+      "first_yml": 10,
+      "first_wrong": null,
+      "first_target": 14,
+      "first_notice": null,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify002-off-r3",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 24313,
+      "tools": 18,
+      "wall_s": 112.8,
+      "net": null,
+      "trajectory_rel": "nudge-shopify002-off-r3/_pi_meta/shopify002/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify002-off-r3/shopify002/shopify.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__discounts"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [
+        "shopify__discounts"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 18,
+      "n_notice": 0,
+      "n_missing_node_warn": 1,
+      "first_yml": 6,
+      "first_wrong": null,
+      "first_target": 14,
+      "first_notice": null,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify002-generic-r1",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 26358,
+      "tools": 25,
+      "wall_s": 122.1,
+      "net": null,
+      "trajectory_rel": "nudge-shopify002-generic-r1/_pi_meta/shopify002/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify002-generic-r1/shopify002/shopify.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__discounts"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [
+        "shopify__discounts"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 25,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 10,
+      "first_wrong": null,
+      "first_target": 21,
+      "first_notice": 22,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify002-generic-r2",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 30574,
+      "tools": 22,
+      "wall_s": 168.7,
+      "net": null,
+      "trajectory_rel": "nudge-shopify002-generic-r2/_pi_meta/shopify002/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify002-generic-r2/shopify002/shopify.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__discounts"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [
+        "shopify__discounts"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 22,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 14,
+      "first_wrong": null,
+      "first_target": 18,
+      "first_notice": 19,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify002-generic-r3",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 30198,
+      "tools": 22,
+      "wall_s": 142.4,
+      "net": null,
+      "trajectory_rel": "nudge-shopify002-generic-r3/_pi_meta/shopify002/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify002-generic-r3/shopify002/shopify.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__discounts"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [
+        "shopify__discounts"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 22,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 12,
+      "first_wrong": null,
+      "first_target": 18,
+      "first_notice": 19,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify002-specific-r1",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 24262,
+      "tools": 19,
+      "wall_s": 116.3,
+      "net": null,
+      "trajectory_rel": "nudge-shopify002-specific-r1/_pi_meta/shopify002/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify002-specific-r1/shopify002/shopify.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__discounts"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [
+        "shopify__discounts"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 19,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 9,
+      "first_wrong": null,
+      "first_target": 15,
+      "first_notice": 16,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify002-specific-r2",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 33169,
+      "tools": 27,
+      "wall_s": 171.8,
+      "net": null,
+      "trajectory_rel": "nudge-shopify002-specific-r2/_pi_meta/shopify002/trajectory.jsonl",
+      "produced_db_rel": "nudge-shopify002-specific-r2/shopify002/shopify.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "shopify__discounts"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "shopify__discounts"
+      ],
+      "scored_built": [
+        "shopify__discounts"
+      ],
+      "scored_all_built": true,
+      "multi_target": true,
+      "n_tool_calls": 27,
+      "n_notice": 1,
+      "n_missing_node_warn": 1,
+      "first_yml": 11,
+      "first_wrong": null,
+      "first_target": 24,
+      "first_notice": 25,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-shopify002-specific-r3",
+      "problems": [
+        "no record at nudge-shopify002-specific-r3.stdout.json"
+      ],
+      "validity": "MISSING"
+    }
+  ],
+  "recharge002": [
+    {
+      "exp": "nudge-recharge002-off-r1",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 47391,
+      "tools": 29,
+      "wall_s": 221.6,
+      "net": null,
+      "trajectory_rel": "nudge-recharge002-off-r1/_pi_meta/recharge002/trajectory.jsonl",
+      "produced_db_rel": "nudge-recharge002-off-r1/recharge002/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "recharge__customer_daily_rollup"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_built": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_all_built": true,
+      "multi_target": false,
+      "n_tool_calls": 29,
+      "n_notice": 0,
+      "n_missing_node_warn": 0,
+      "first_yml": 7,
+      "first_wrong": null,
+      "first_target": 14,
+      "first_notice": null,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-recharge002-off-r2",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 39041,
+      "tools": 33,
+      "wall_s": 257.2,
+      "net": null,
+      "trajectory_rel": "nudge-recharge002-off-r2/_pi_meta/recharge002/trajectory.jsonl",
+      "produced_db_rel": "nudge-recharge002-off-r2/recharge002/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "recharge__customer_daily_rollup"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_built": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_all_built": true,
+      "multi_target": false,
+      "n_tool_calls": 33,
+      "n_notice": 0,
+      "n_missing_node_warn": 0,
+      "first_yml": 9,
+      "first_wrong": null,
+      "first_target": 18,
+      "first_notice": null,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-recharge002-off-r3",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 35323,
+      "tools": 30,
+      "wall_s": 195.8,
+      "net": null,
+      "trajectory_rel": "nudge-recharge002-off-r3/_pi_meta/recharge002/trajectory.jsonl",
+      "produced_db_rel": "nudge-recharge002-off-r3/recharge002/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "recharge__customer_daily_rollup"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_built": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_all_built": true,
+      "multi_target": false,
+      "n_tool_calls": 30,
+      "n_notice": 0,
+      "n_missing_node_warn": 0,
+      "first_yml": 7,
+      "first_wrong": null,
+      "first_target": 16,
+      "first_notice": null,
+      "wrong_names": [],
+      "reread_yml_after_notice": 0,
+      "nudge_fired": false,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-recharge002-generic-r1",
+      "problems": [],
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 21323,
+      "tools": 20,
+      "wall_s": 120.9,
+      "net": null,
+      "trajectory_rel": "nudge-recharge002-generic-r1/_pi_meta/recharge002/trajectory.jsonl",
+      "produced_db_rel": "nudge-recharge002-generic-r1/recharge002/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "recharge__customer_daily_rollup"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_built": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_all_built": true,
+      "multi_target": false,
+      "n_tool_calls": 20,
+      "n_notice": 1,
+      "n_missing_node_warn": 0,
+      "first_yml": 12,
+      "first_wrong": null,
+      "first_target": 9,
+      "first_notice": 10,
+      "wrong_names": [],
+      "reread_yml_after_notice": 1,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-recharge002-generic-r2",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 39604,
+      "tools": 33,
+      "wall_s": 258.5,
+      "net": null,
+      "trajectory_rel": "nudge-recharge002-generic-r2/_pi_meta/recharge002/trajectory.jsonl",
+      "produced_db_rel": "nudge-recharge002-generic-r2/recharge002/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "recharge__customer_daily_rollup"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_built": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_all_built": true,
+      "multi_target": false,
+      "n_tool_calls": 33,
+      "n_notice": 5,
+      "n_missing_node_warn": 0,
+      "first_yml": 7,
+      "first_wrong": null,
+      "first_target": 12,
+      "first_notice": 15,
+      "wrong_names": [],
+      "reread_yml_after_notice": 6,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-recharge002-generic-r3",
+      "problems": [],
+      "validity": "VALID",
+      "score": 0,
+      "tokens": 28904,
+      "tools": 25,
+      "wall_s": 195.7,
+      "net": null,
+      "trajectory_rel": "nudge-recharge002-generic-r3/_pi_meta/recharge002/trajectory.jsonl",
+      "produced_db_rel": "nudge-recharge002-generic-r3/recharge002/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "recharge__customer_daily_rollup"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_built": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_all_built": true,
+      "multi_target": false,
+      "n_tool_calls": 25,
+      "n_notice": 4,
+      "n_missing_node_warn": 0,
+      "first_yml": 7,
+      "first_wrong": null,
+      "first_target": 13,
+      "first_notice": 14,
+      "wrong_names": [],
+      "reread_yml_after_notice": 2,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-recharge002-specific-r1",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 41682,
+      "tools": 35,
+      "wall_s": 291.8,
+      "net": null,
+      "trajectory_rel": "nudge-recharge002-specific-r1/_pi_meta/recharge002/trajectory.jsonl",
+      "produced_db_rel": "nudge-recharge002-specific-r1/recharge002/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "recharge__customer_daily_rollup"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_built": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_all_built": true,
+      "multi_target": false,
+      "n_tool_calls": 35,
+      "n_notice": 2,
+      "n_missing_node_warn": 0,
+      "first_yml": 1,
+      "first_wrong": null,
+      "first_target": 14,
+      "first_notice": 15,
+      "wrong_names": [],
+      "reread_yml_after_notice": 1,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    },
+    {
+      "exp": "nudge-recharge002-specific-r2",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 40441,
+      "tools": 39,
+      "wall_s": 316.3,
+      "net": null,
+      "trajectory_rel": "nudge-recharge002-specific-r2/_pi_meta/recharge002/trajectory.jsonl",
+      "produced_db_rel": "nudge-recharge002-specific-r2/recharge002/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "recharge__customer_daily_rollup"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_built": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_all_built": true,
+      "multi_target": false,
+      "n_tool_calls": 39,
+      "n_notice": 6,
+      "n_missing_node_warn": 1,
+      "first_yml": 7,
+      "first_wrong": null,
+      "first_target": 23,
+      "first_notice": 10,
+      "wrong_names": [],
+      "reread_yml_after_notice": 3,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": false
+    },
+    {
+      "exp": "nudge-recharge002-specific-r3",
+      "problems": [],
+      "validity": "VALID",
+      "score": 1,
+      "tokens": 37808,
+      "tools": 31,
+      "wall_s": 240.6,
+      "net": null,
+      "trajectory_rel": "nudge-recharge002-specific-r3/_pi_meta/recharge002/trajectory.jsonl",
+      "produced_db_rel": "nudge-recharge002-specific-r3/recharge002/recharge.duckdb",
+      "gate_message": "all 1 agent-created model(s) carry declared names",
+      "gate_status": "pass",
+      "undeclared_built": [],
+      "built_candidates": [
+        "recharge__customer_daily_rollup"
+      ],
+      "wrong_name": false,
+      "target_built": true,
+      "scored_targets": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_built": [
+        "recharge__customer_daily_rollup"
+      ],
+      "scored_all_built": true,
+      "multi_target": false,
+      "n_tool_calls": 31,
+      "n_notice": 4,
+      "n_missing_node_warn": 0,
+      "first_yml": 11,
+      "first_wrong": null,
+      "first_target": 14,
+      "first_notice": 15,
+      "wrong_names": [],
+      "reread_yml_after_notice": 4,
+      "nudge_fired": true,
+      "entered_trap": false,
+      "converted": false,
+      "correct_before_notice": true
+    }
   ]
 }

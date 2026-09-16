@@ -42,13 +42,17 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SPIDER = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-# Canonical checker location -- the one pi_runner/run_task.py imports (METHODS_DBT).
-# The dfc/spider_agent/agent/ mirror sits at a different depth, so its EXAMPLES
-# constant resolves to a path that does not exist; do not import the mirror here.
-sys.path.insert(0, os.path.join(SPIDER, "Spider2", "methods", "spider-agent-dbt"))
 
 from nudge_validity import classify                                  # noqa: E402
-from spider_agent.agent import dfc_check_namegate as ng              # noqa: E402
+# Checker resolution is run_task.py's job and is reused here so the two can never
+# drift: it prefers the canonical Spider2 location and falls back to the tracked
+# dfc/ mirror when that clone is absent. The mirror used to be unusable from here --
+# dfc_check_namegate.py derived EXAMPLES from its own file depth, which lands outside
+# the repo when loaded from dfc/ -- so this module deliberately refused to import it.
+# SPIDER2_EXAMPLES now overrides that derivation, and either source works.
+from run_task import _import_agent_module                            # noqa: E402
+
+ng = _import_agent_module("dfc_check_namegate")
 
 ARMS = ("off", "generic", "specific")
 # The first batch (recharge001) predates the family extension and used un-prefixed
