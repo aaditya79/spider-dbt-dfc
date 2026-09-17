@@ -136,10 +136,21 @@ def resolve_produced_db(run_dir, instance_id):
 
 
 # ------------------------------------------------------- prompt scaffolding ----
-# Kept deliberately minimal and recorded verbatim in the run record, because it
-# affects comparability against the old harness. See
-# pi_runner/scaffolds/CANDIDATE_yaml_navigation.md for a proposed (unapplied)
-# change pending the team decision.
+# Two scaffolds, selected by --scaffold and recorded verbatim in the run record
+# (prompt_scaffold / system_prompt), because they affect comparability.
+#
+#   minimal : stock Pi system prompt + the short ORIENTATION user message. This
+#             is what every run before branch spider_pi_2.0 used.
+#   dbt     : the Spider-harness DBT_SYSTEM prompt ported to Pi -- same persona,
+#             same project rules, but the ACTION SPACE rewritten around Pi's
+#             native tools (bash/read/edit/write/grep/find/ls) instead of the
+#             Thought:/Action: text protocol. Sent via `--system-prompt`, which
+#             REPLACES Pi's default prompt. The user message is TASK_TEMPLATE.
+#
+# Rationale for `dbt`: the minimal scaffold says nothing about what tools exist
+# or how to reach the database, and the Haiku e-comm traces show the model
+# burning early turns on tools it assumes exist (a `duckdb` CLI, `read` on a
+# directory). See pi_runner/scaffolds/CANDIDATE_yaml_navigation.md.
 ORIENTATION = (
     "You are working in a dbt project that uses DuckDB. The current working "
     "directory is the project root.\n\n"
@@ -147,6 +158,79 @@ ORIENTATION = (
     "When you are done, make sure `dbt run` succeeds and your model is "
     "materialized into the project's DuckDB database."
 )
+
+# Pi appends "Current working directory: <cwd>" to a custom system prompt itself,
+# so this text never hardcodes the path. Tool names below must match --tools.
+DBT_SYSTEM_PROMPT = """\
+You are a data scientist proficient in databases, SQL, and dbt projects.
+You are starting in the root of a dbt project, which contains all the codebase needed for your task.
+You solve the task by calling the tools below. Every step until the task is complete must be a tool call; keep any text between tool calls brief.
+
+# TOOLS
+
+- bash: run a non-interactive shell command in the project root. `dbt` and `python` are on PATH. Use it for `dbt deps`, `dbt run --profiles-dir .`, and for querying the database (see below).
+- read: read a file. Files only -- for a directory use ls.
+- ls: list a directory. find: find files by glob. grep: search file contents.
+- write: create a new file, or overwrite an existing file in full.
+- edit: change an existing file by exact-text replacement (oldText must match the file exactly). Read the file first.
+
+Querying the DuckDB database: there is no `duckdb` CLI in this environment. Use the Python module through bash, e.g.
+
+    python -c "import duckdb; print(duckdb.connect('<name>.duckdb').sql(\\"select * from my_table limit 10\\"))"
+
+The database file is the `*.duckdb` in the project root; `profiles.yml` names it.
+
+Finishing: there is no terminate action. When the task is complete, stop calling tools and reply with a short summary naming the DuckDB file and the model(s) you materialized. Do not produce a CSV as the deliverable.
+
+# DBT PROJECT RULES
+
+1. First inspect dbt_project.yml, profiles.yml, models/, the YAML schema files, docs, and relevant SQL files.
+2. The project is unfinished. Use the YAML model definitions to identify missing or incomplete model SQL files.
+3. Do not modify YAML unless absolutely required. Prefer creating/fixing SQL models.
+4. If packages.yml exists and dbt_packages/ is missing, run `dbt deps` before `dbt run`.
+5. Run `dbt run --profiles-dir .` to execute the transformations. Do not pipe dbt run through grep, tail, head, tee, sed, or awk; the bash tool already truncates long output and saves the full log to a temp file.
+6. Verify generated models where practical by querying the database, only after `dbt run` succeeds.
+7. Do not finish until all required SQL models are complete according to the YAML and `dbt run` succeeds.
+8. Do not use networking, privilege escalation, destructive system commands, or interactive editors.
+"""
+
+TASK_TEMPLATE = """\
+# {instance_id}
+
+## Task Description
+
+{instruction}
+
+## Environment
+
+You are working with a dbt project that transforms data in a DuckDB database.
+The project is the current working directory, with this typical structure:
+
+- `dbt_project.yml` - dbt project configuration
+- `profiles.yml` - DuckDB profile
+- `models/` - SQL transformation models
+- `*.duckdb` - Source database containing raw data and generated model outputs
+
+## Objective
+
+Complete or fix the dbt models to produce the correct table outputs.
+Run `dbt run --profiles-dir .` to execute the transformations.
+
+Safety note: operate only inside the local task sandbox. Do not attempt privilege escalation,
+networking, or destructive actions.
+"""
+
+SCAFFOLDS = ("minimal", "dbt")
+
+
+def build_prompts(scaffold, instance_id, instruction):
+    """Return (user_prompt, system_prompt_or_None, scaffold_text_for_record)."""
+    if scaffold == "minimal":
+        return ORIENTATION.format(instruction=instruction), None, ORIENTATION
+    if scaffold == "dbt":
+        user = TASK_TEMPLATE.format(instance_id=instance_id, instruction=instruction)
+        return user, DBT_SYSTEM_PROMPT, TASK_TEMPLATE
+    raise ValueError(f"unknown scaffold {scaffold!r}")
 
 
 # ------------------------------------------------------------- DFC policy ----
@@ -474,12 +558,41 @@ class PiRpcSession:
                 pass
 
 
+# Pi's RPC stream reports the same content several times per turn: an empty
+# `message_start` placeholder, the full assistant message at `message_end`, the
+# same message again inside `turn_end`, each tool result both at
+# `tool_execution_end` and as a `toolResult`-role message pair, and finally the
+# whole conversation again in `agent_end.messages`. trajectory.jsonl keeps ONE
+# copy of each thing. Every reader in pi_runner/ (analyze_runs, analyze_nudge,
+# inspect_trajectory) consumes only the kept types.
+#
+#   kept    : _runner_* markers, response (ack), agent_start, turn_start,
+#             message_end for role user/assistant (carries content + usage),
+#             tool_execution_start, tool_execution_end, agent_settled,
+#             agent_end WITHOUT its `messages` replay
+#   dropped : message_start, turn_end, message_end for role toolResult
+TRAJ_DROP = {"message_start", "turn_end"}
+
+
+def traj_record(ev):
+    """Return the JSON-serialisable record to log for `ev`, or None to skip it."""
+    t = ev.get("type")
+    if t in TRAJ_DROP:
+        return None
+    if t == "message_end" and (ev.get("message") or {}).get("role") == "toolResult":
+        return None                      # already logged as tool_execution_end
+    if t == "agent_end":
+        return {k: v for k, v in ev.items() if k != "messages"}
+    return ev
+
+
 def drive_round(sess, traj_fh, deadline, req_id, prompt_text, round_no, quiet):
     """Send one prompt and drive a full agent_start..agent_settled cycle.
 
-    Every raw event line is teed to the shared trajectory file, bracketed by
-    `_runner_round_*` marker records so the multi-round
-    violation -> RETRY -> fix -> pass sequence stays auditable in one stream.
+    Events are teed to the shared trajectory file after de-duplication (see
+    traj_record), bracketed by `_runner_round_*` marker records so the
+    multi-round violation -> RETRY -> fix -> pass sequence stays auditable in
+    one stream. Unparseable lines are logged raw so nothing is silently lost.
     """
     marker = {"type": "_runner_round_start", "round": round_no,
               "req_id": req_id, "prompt": prompt_text}
@@ -491,9 +604,12 @@ def drive_round(sess, traj_fh, deadline, req_id, prompt_text, round_no, quiet):
     sess.send({"id": req_id, "type": "prompt", "message": prompt_text})
     try:
         for raw, ev in sess.events(deadline):
-            traj_fh.write(raw); traj_fh.flush()
             if ev is None:
+                traj_fh.write(raw); traj_fh.flush()
                 continue
+            rec = traj_record(ev)
+            if rec is not None:
+                traj_fh.write((json.dumps(rec) + "\n").encode()); traj_fh.flush()
             t = ev.get("type")
             r["counts"][t] = r["counts"].get(t, 0) + 1
             if t == "response" and ev.get("id") == req_id:
@@ -561,6 +677,10 @@ def main():
     ap.add_argument("--timeout", type=float, default=3600.0)
     ap.add_argument("--prompt", default=None, help="override the instruction (smoke only)")
     ap.add_argument("--no-scaffold", action="store_true")
+    ap.add_argument("--scaffold", default="dbt", choices=list(SCAFFOLDS),
+                    help="'dbt' (default): Spider DBT_SYSTEM ported to Pi-native tools, "
+                         "sent as --system-prompt, task via TASK_TEMPLATE. 'minimal': "
+                         "stock Pi system prompt + ORIENTATION (pre-2.0 behaviour).")
     ap.add_argument("--no-score", action="store_true")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--quiet", action="store_true")
@@ -601,6 +721,7 @@ def main():
     session_dir = os.path.join(meta_dir, "sessions")
     produced_db = resolve_produced_db(run_dir, args.instance_id)
 
+    system_prompt = None
     if args.prompt is not None:
         prompt_text, instruction, scaffold_used = args.prompt, None, "<--prompt override>"
     else:
@@ -608,14 +729,20 @@ def main():
         if args.no_scaffold:
             prompt_text, scaffold_used = instruction, None
         else:
-            prompt_text, scaffold_used = ORIENTATION.format(instruction=instruction), ORIENTATION
+            prompt_text, system_prompt, scaffold_used = build_prompts(
+                args.scaffold, args.instance_id, instruction)
+    pi_extra = ["--system-prompt", system_prompt] if system_prompt else None
 
     env = build_env(args.aws_profile, args.aws_region, args.conda_bin,
                     nudge_mode=args.harness_nudge)
     sess = PiRpcSession(args.pi, run_dir, args.provider, args.model,
-                        args.tools, env, session_dir=session_dir)
+                        args.tools, env, session_dir=session_dir, extra_args=pi_extra)
 
     print(f"[runner] run dir    : {run_dir}", file=sys.stderr)
+    scaffold_name = (scaffold_used if scaffold_used in (None, "<--prompt override>")
+                     else args.scaffold)
+    print(f"[runner] scaffold   : {scaffold_name}"
+          f"{' (+ --system-prompt)' if system_prompt else ''}", file=sys.stderr)
     print(f"[runner] dfc policy : {args.dfc_policy or 'OFF'} "
           f"(max retries {args.dfc_max_retries})", file=sys.stderr)
 
@@ -682,6 +809,8 @@ def main():
         "harness_nudge": args.harness_nudge,
         "prompt_sent": prompt_text, "instruction_verbatim": instruction,
         "prompt_scaffold": scaffold_used,
+        "scaffold": None if (args.prompt is not None or args.no_scaffold) else args.scaffold,
+        "system_prompt": system_prompt,
         "wall_clock_s": round(wall, 1), "pi_exit_code": exit_code,
         "n_rounds": len(rounds),
         "rounds": [{k: v for k, v in r.items() if k != "tool_calls"} for r in rounds],
