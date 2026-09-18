@@ -58,7 +58,30 @@ SCORE_RUN = os.path.join(METHODS_DBT, "score_run.py")
 GOLD_DIR = os.path.join(DBT_DIR, "evaluation_suite", "gold")
 EVAL_JSONL = os.path.join(GOLD_DIR, "spider2_eval.jsonl")
 
-DEFAULT_PI = os.path.expanduser("~/Desktop/DAPLab/pi/pi-test.sh")
+def _find_pi():
+    """First existing pi launcher: $PI_BIN, then known clone locations.
+
+    The old single hardcoded path (~/Desktop/DAPLab/pi/pi-test.sh) went stale
+    when the Desktop moved; every driver then had to pass --pi. Unresolved ->
+    the old path is returned so the error message still names something.
+    """
+    cands = [os.environ.get("PI_BIN")] + [os.path.expanduser(p) for p in (
+        "~/Desktop/Desktop - Aaditya’s MacBook Pro/DAPLab/pi/pi-test.sh",
+        "~/Desktop/DAPLab/pi/pi-test.sh",
+        "~/pi/pi-test.sh",
+    )]
+    for c in cands:
+        if c and os.path.isfile(c):
+            return c
+    return cands[1]
+
+
+DEFAULT_PI = _find_pi()
+# Tracked copy of the ~/.pi/agent/models.json entries this harness needs (Qwen's
+# application-inference-profile ARN with its real 65536 max-out). Pi only reads
+# the copy in its agent dir, so this is an install artefact; check_models_json()
+# refuses to start an ARN-model run without it rather than fail 100% silently.
+PI_MODELS_JSON = os.path.join(HERE, "pi_models.json")
 DEFAULT_CONDA_BIN = os.path.expanduser("~/miniconda3/envs/spider2/bin")
 DEFAULT_RUNS_ROOT = os.path.join(SPIDER_ROOT, "runs", "pi")
 
@@ -168,17 +191,19 @@ You solve the task by calling the tools below. Every step until the task is comp
 
 # TOOLS
 
-- bash: run a non-interactive shell command in the project root. `dbt` and `python` are on PATH. Use it for `dbt deps`, `dbt run --profiles-dir .`, and for querying the database (see below).
-- read: read a file. Files only -- for a directory use ls.
-- ls: list a directory. find: find files by glob. grep: search file contents.
-- write: create a new file, or overwrite an existing file in full.
-- edit: change an existing file by exact-text replacement (oldText must match the file exactly). Read the file first.
+The only tools are exactly these seven, by these exact names: bash, read, ls, find, grep, write, edit. A shell command is never a tool name -- `dbt run` or `python` go in the `command` argument of the bash tool.
 
-Querying the DuckDB database: there is no `duckdb` CLI in this environment. Use the Python module through bash, e.g.
+- bash: run a non-interactive shell command in the project root. `dbt` and `python` are on PATH. Use it for `dbt deps`, `dbt run --profiles-dir .`, and for querying the database (see below).
+- read: read one file; `path` is required. Files only -- for a directory use ls. Output is capped at about 50KB / 860 lines, so a long schema YAML gets cut off: list the declared models first with `grep -n "  - name: " models/*.yml`, then read the file with `offset` to reach the part you need.
+- ls: list a directory. find: find files by glob. grep: search file contents.
+- write: create a new file, or overwrite an existing file in full. Prefer write for a new model file or when replacing most of a file.
+- edit: change an existing file by exact-text replacement. `oldText` must match the file byte-for-byte including whitespace, so read the file immediately before editing and keep each edit small; if an edit fails twice, use write instead.
+
+Querying the DuckDB database: there is no `duckdb` CLI and no `python` tool in this environment. Run the Python module through the bash tool, e.g.
 
     python -c "import duckdb; print(duckdb.connect('<name>.duckdb').sql(\\"select * from my_table limit 10\\"))"
 
-The database file is the `*.duckdb` in the project root; `profiles.yml` names it.
+The database file is the `*.duckdb` in the project root; `profiles.yml` names it. Do not read the .duckdb file with the read tool.
 
 Finishing: there is no terminate action. When the task is complete, stop calling tools and reply with a short summary naming the DuckDB file and the model(s) you materialized. Do not produce a CSV as the deliverable.
 
@@ -221,6 +246,12 @@ networking, or destructive actions.
 """
 
 SCAFFOLDS = ("minimal", "dbt")
+# Bump when DBT_SYSTEM_PROMPT / TASK_TEMPLATE wording changes, so runs stay
+# comparable by (scaffold, scaffold_version) without diffing system_prompt.
+#   1: 2026-09-16 first port of DBT_SYSTEM to Pi (ecom-v2-qwen-* batch)
+#   2: 2026-09-17 tool-name discipline, no `python` tool, read needs path,
+#      yml truncation guidance (grep -n then offset), write-over-edit advice
+SCAFFOLD_VERSION = 2
 
 
 def build_prompts(scaffold, instance_id, instruction):
@@ -417,6 +448,31 @@ def dfc_retry_message(verdict):
 
 # ---------------------------------------------------------------- helpers ----
 
+def check_models_json(model):
+    """Fail fast if `model` is an ARN that Pi has no metadata for.
+
+    An application-inference-profile ARN carries no model name, so Pi cannot look
+    it up in its catalog and sends max_completion_tokens from the wrong entry
+    (128000 -> Qwen rejects every call). The fix is a models.json entry; Pi reads
+    it from its agent dir only. See pi_runner/pi_models.json.
+    """
+    if not model.startswith("arn:"):
+        return
+    agent_dir = os.environ.get("PI_CODING_AGENT_DIR") or os.path.expanduser("~/.pi/agent")
+    path = os.path.join(agent_dir, "models.json")
+    try:
+        with open(path) as f:
+            ids = [m.get("id") for prov in json.load(f).get("providers", {}).values()
+                   for m in prov.get("models", [])]
+    except (OSError, ValueError):
+        ids = []
+    if model not in ids:
+        raise SystemExit(
+            f"model {model!r} is an inference-profile ARN but {path} does not define it, "
+            f"so Pi would send the wrong max_completion_tokens and every call would fail.\n"
+            f"  install: cp {PI_MODELS_JSON} {path}   (merge if you already have one)")
+
+
 def load_instruction(instance_id):
     """Read the verbatim task instruction from spider2-dbt.jsonl."""
     with open(TASKS_JSONL) as f:
@@ -586,20 +642,66 @@ def traj_record(ev):
     return ev
 
 
-def drive_round(sess, traj_fh, deadline, req_id, prompt_text, round_no, quiet):
+# Bedrock Converse rejects any request whose history contains a toolUse.name
+# outside this pattern. A model that emits e.g. toolName="dbt deps" poisons the
+# session permanently: every later turn 400s, Pi records stopReason=error with
+# willRetry=false, and the run settles with nothing built. Seen on 3/15 Qwen
+# cells (2026-09-16). Detected here so the run record says HARNESS_ERROR instead
+# of a silent 0.
+TOOL_NAME_OK = __import__("re").compile(r"^[a-zA-Z0-9_-]+$")
+
+USAGE_KEYS = ("input", "output", "cacheRead", "cacheWrite", "totalTokens")
+
+
+def _add_usage(total, u):
+    """Accumulate one assistant message's usage into `total` (in place)."""
+    if not u:
+        return total
+    for k in USAGE_KEYS:
+        total[k] = total.get(k, 0) + (u.get(k) or 0)
+    cost = (u.get("cost") or {}).get("total") or 0.0
+    total["cost_total"] = total.get("cost_total", 0.0) + cost
+    total["turns"] = total.get("turns", 0) + 1
+    return total
+
+
+def _sum_usage(rounds):
+    total = {}
+    for r in rounds:
+        for k, v in (r.get("usage") or {}).items():
+            total[k] = total.get(k, 0) + v
+    return total
+
+
+def drive_round(sess, traj_fh, deadline, req_id, prompt_text, round_no, quiet,
+                max_tool_calls=0):
     """Send one prompt and drive a full agent_start..agent_settled cycle.
 
     Events are teed to the shared trajectory file after de-duplication (see
     traj_record), bracketed by `_runner_round_*` marker records so the
     multi-round violation -> RETRY -> fix -> pass sequence stays auditable in
     one stream. Unparseable lines are logged raw so nothing is silently lost.
+
+    `usage` is the SUM over every assistant message in the round (it used to be
+    the last message only, which under-reported a 143-turn run as one turn).
+
+    `harness_error` is set when the round ended for a reason that is not the
+    model's doing: a malformed tool name that Bedrock will reject, an API/stream
+    error (network, validation), or the `max_tool_calls` cap. The caller decides
+    what that means for the verdict.
+
+    `max_tool_calls` > 0 sends Pi an `abort` once the round has issued that many
+    tool calls; the round then settles normally and is marked `capped`. Default
+    0 = no cap (Pi has none of its own; the Spider harness capped at 30 steps).
     """
     marker = {"type": "_runner_round_start", "round": round_no,
               "req_id": req_id, "prompt": prompt_text}
     traj_fh.write((json.dumps(marker) + "\n").encode()); traj_fh.flush()
 
     r = {"round": round_no, "settled": False, "timed_out": False, "ack": None,
-         "counts": {}, "tool_calls": [], "final_text": None, "usage": None}
+         "counts": {}, "tool_calls": [], "final_text": None, "usage": {},
+         "harness_error": None, "capped": False}
+    aborted = False
 
     sess.send({"id": req_id, "type": "prompt", "message": prompt_text})
     try:
@@ -618,16 +720,34 @@ def drive_round(sess, traj_fh, deadline, req_id, prompt_text, round_no, quiet):
                     print(f"[runner] prompt REJECTED: {ev.get('error')}", file=sys.stderr)
                     break
             elif t == "tool_execution_start":
-                name = ev.get("toolName") or ev.get("name")
+                name = ev.get("toolName") or ev.get("name") or ""
                 r["tool_calls"].append({"tool": name, "args": ev.get("args")})
                 if not quiet:
                     print(f"[runner]  r{round_no} tool: {name}", file=sys.stderr)
+                if not TOOL_NAME_OK.match(name) and not r["harness_error"]:
+                    r["harness_error"] = {"kind": "bad_tool_name", "tool_name": name,
+                                          "after_tool_calls": len(r["tool_calls"])}
+                    print(f"[runner] HARNESS: malformed tool name {name!r} -- Bedrock "
+                          f"will reject every later turn of this session", file=sys.stderr)
+                if max_tool_calls and len(r["tool_calls"]) >= max_tool_calls and not aborted:
+                    aborted = True; r["capped"] = True
+                    print(f"[runner] CAP: {max_tool_calls} tool calls reached, aborting round",
+                          file=sys.stderr)
+                    sess.send({"type": "abort"})
+            elif t == "message_end":
+                m = ev.get("message") or {}
+                if m.get("role") == "assistant":
+                    _add_usage(r["usage"], m.get("usage"))
+                    if m.get("stopReason") == "error" and not r["harness_error"]:
+                        r["harness_error"] = {"kind": "api_error",
+                                              "message": (m.get("errorMessage") or "")[:500],
+                                              "after_tool_calls": len(r["tool_calls"])}
+                        print(f"[runner] HARNESS: API error -- {m.get('errorMessage')!s:.160}",
+                              file=sys.stderr)
             elif t == "agent_end":
                 msgs = ev.get("messages") or []
                 if msgs:
-                    m = msgs[-1]
-                    r["usage"] = m.get("usage")
-                    for c in (m.get("content") or []):
+                    for c in (msgs[-1].get("content") or []):
                         if c.get("type") == "text":
                             r["final_text"] = c.get("text")
             elif t == "agent_settled":
@@ -637,8 +757,12 @@ def drive_round(sess, traj_fh, deadline, req_id, prompt_text, round_no, quiet):
         r["timed_out"] = True
         print(f"[runner] TIMEOUT in round {round_no}: {e}", file=sys.stderr)
 
+    if r["capped"] and r["harness_error"] is None:
+        r["harness_error"] = {"kind": "tool_call_cap", "cap": max_tool_calls,
+                              "after_tool_calls": len(r["tool_calls"])}
     end_marker = {"type": "_runner_round_end", "round": round_no,
-                  "settled": r["settled"], "timed_out": r["timed_out"]}
+                  "settled": r["settled"], "timed_out": r["timed_out"],
+                  "harness_error": r["harness_error"]}
     traj_fh.write((json.dumps(end_marker) + "\n").encode()); traj_fh.flush()
     return r
 
@@ -675,6 +799,10 @@ def main():
     ap.add_argument("--aws_profile", default="default")
     ap.add_argument("--aws_region", default="us-east-1")
     ap.add_argument("--timeout", type=float, default=3600.0)
+    ap.add_argument("--max-tool-calls", type=int, default=0,
+                    help="abort a round after this many tool calls (0 = no cap; the "
+                         "Spider harness capped at 30 steps). Marks the run HARNESS_ERROR "
+                         "kind=tool_call_cap unless it passed anyway.")
     ap.add_argument("--prompt", default=None, help="override the instruction (smoke only)")
     ap.add_argument("--no-scaffold", action="store_true")
     ap.add_argument("--scaffold", default="dbt", choices=list(SCAFFOLDS),
@@ -733,6 +861,7 @@ def main():
                 args.scaffold, args.instance_id, instruction)
     pi_extra = ["--system-prompt", system_prompt] if system_prompt else None
 
+    check_models_json(args.model)
     env = build_env(args.aws_profile, args.aws_region, args.conda_bin,
                     nudge_mode=args.harness_nudge)
     sess = PiRpcSession(args.pi, run_dir, args.provider, args.model,
@@ -752,7 +881,8 @@ def main():
 
     with open(traj_path, "wb") as traj:
         # --- round 0: the task itself -----------------------------------
-        rounds.append(drive_round(sess, traj, deadline, "req-1", prompt_text, 0, args.quiet))
+        rounds.append(drive_round(sess, traj, deadline, "req-1", prompt_text, 0, args.quiet,
+                                  max_tool_calls=args.max_tool_calls))
 
         # --- DFC loop: check -> steer -> recheck ------------------------
         if checker and rounds[-1]["settled"]:
@@ -777,7 +907,8 @@ def main():
 
                 msg = retry_message(verdict)
                 print(f"[runner] DFC RETRY {attempt}/{args.dfc_max_retries}", file=sys.stderr)
-                r = drive_round(sess, traj, deadline, f"dfc-{attempt}", msg, attempt, args.quiet)
+                r = drive_round(sess, traj, deadline, f"dfc-{attempt}", msg, attempt, args.quiet,
+                                max_tool_calls=args.max_tool_calls)
                 rounds.append(r)
                 if not r["settled"]:
                     break
@@ -810,6 +941,7 @@ def main():
         "prompt_sent": prompt_text, "instruction_verbatim": instruction,
         "prompt_scaffold": scaffold_used,
         "scaffold": None if (args.prompt is not None or args.no_scaffold) else args.scaffold,
+        "scaffold_version": SCAFFOLD_VERSION,
         "system_prompt": system_prompt,
         "wall_clock_s": round(wall, 1), "pi_exit_code": exit_code,
         "n_rounds": len(rounds),
@@ -819,12 +951,22 @@ def main():
         "dfc_retries_used": sum(1 for r in rounds if r["round"] > 0),
         "settled": all(r["settled"] for r in rounds) if rounds else False,
         "timed_out": any(r["timed_out"] for r in rounds),
+        "harness_error": next((r["harness_error"] for r in rounds if r["harness_error"]), None),
+        "usage_total": _sum_usage(rounds),
         "agent_final_text": rounds[-1]["final_text"] if rounds else None,
         "score_report": score_report,
     }
     if score_report is not None:
         record["score"] = score_report.get("score")
         record["verdict"] = score_report.get("verdict")
+        # A harness error that ended the run before it could pass is not a model
+        # failure. score=None makes the resumable drivers re-run the cell; a run
+        # that passed despite a late harness error keeps its 1 (the work is on
+        # disk and the scorer is authoritative).
+        if record["harness_error"] and record["score"] != 1:
+            record["verdict_scorer"] = record["verdict"]
+            record["verdict"] = "HARNESS_ERROR"
+            record["score"] = None
 
     rec_path = os.path.join(meta_dir, "run_record.json")
     with open(rec_path, "w") as f:

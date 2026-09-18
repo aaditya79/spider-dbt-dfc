@@ -1,0 +1,18 @@
+{
+  "providers": {
+    "amazon-bedrock": {
+      "models": [
+        {
+          "id": "arn:aws:bedrock:us-east-2:920736616554:application-inference-profile/xcoflhsehr9h",
+          "name": "Qwen3 235B A22B 2507 (dfc-qwen3-235b profile)",
+          "api": "bedrock-converse-stream",
+          "reasoning": false,
+          "input": ["text"],
+          "contextWindow": 262144,
+          "maxTokens": 65536,
+          "cost": { "input": 0.22, "output": 0.88, "cacheRead": 0, "cacheWrite": 0 }
+        }
+      ]
+    }
+  }
+}
