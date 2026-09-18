@@ -16,6 +16,34 @@ To revert one item, follow its "Revert" line. Items are independent unless noted
 
 Evidence for each problem is in the batch table at the end.
 
+## Status matrix (2026-09-18)
+
+All 14 problems flagged from the 2026-09-16 Qwen batch, what was done about each,
+and where it stands. Fix numbers refer to the sections below.
+
+| # | Problem | Evidence (batch of 15) | Fix | Status | Left to do |
+|---|---|---|---|---|---|
+| 1 | Model emits a shell command as the tool *name* (`"dbt deps"`); Bedrock 400s every later turn; run dies and is scored 0 | 3 cells died (holistic-r3, recharge002-r2 with nothing built; holistic-r2 passed first) | 1 | **Detected & reclassified** -- `verdict: HARNESS_ERROR`, `score: null`, scorer verdict kept in `verdict_scorer` | Not *prevented*: needs a Pi extension to rewrite the call before it enters history. Fix 6 tells the model not to. |
+| 2 | `agent_settled` after an API error treated as a normal finish | same cells + recharge002-r3 (DNS drop) | 1 | **Fixed** -- `stopReason == "error"` -> `harness_error.kind = api_error` | -- |
+| 3 | `edit` exact-match failures burn turns | 55 failed edits (41 no-match, 14 bad args) | 6 | **Mitigated** by wording (read-before-edit, small edits, fall back to `write`) | Option (a): drop `edit` from `--tools` for Qwen so it must `write` whole files, as the Spider `EditFile` did. One flag, no code. Option (b): fuzzy-match extension (Pi side). |
+| 4 | Calls to a non-existent `python` tool | 5 | 6 | **Fixed** by wording ("no `python` tool; run Python through bash") | verify in v3 batch |
+| 5 | `read` with no `path` | 6 (one per cell) | 6 | **Fixed** by wording | verify in v3 batch |
+| 6 | `read` 50 KB cap truncates `models/shopify.yml` above the target declaration (`shopify__daily_shop` at line 915/1041) | shopify001-r1, shopify002-r1 | 6 | **Mitigated** -- prompt says use `grep -n "  - name: "` then `read` with `offset` | The cap itself is Pi's. Not changing. |
+| 7 | No step cap; only wall-clock timeout. Runs plateau for 30-55 min | recharge002-r1 176 calls, shopify002-r2 174 calls, smoke 143 | 4 | **Fixed** (opt-in) -- `--max-tool-calls N`, Pi `abort`, `kind: tool_call_cap`. Default 0 = off | Decide default N (Spider used 30) and whether capped = 0 or null. |
+| 8 | Bash output truncation (2000 lines / 50 KB) on 105-model `dbt run`s | 2 | -- | **Not fixed** -- constants in Pi's `bash.ts`, no settings hook | Only by patching Pi. Tail is kept so dbt errors survive. |
+| 9 | Cost / tokens recorded from the last turn only | smoke run: $0.03 reported vs $2.56 actual (144 turns, 11.6 M input) | 3 | **Fixed** -- summed per assistant message; `usage_total` in record | Old records need recompute from `trajectory.jsonl`. |
+| 10 | Rule 4 (`dbt deps`) contradicts rule 8 (no networking) | every passing holistic cell broke rule 8 | 8 | **Fixed** -- rule 8 names `dbt deps` as the exception. Scaffold v3 | -- |
+| 11 | Wrong / missing target name (never reads the schema yml, or builds `int_` prefix) | recharge001-r1/r2, recharge002-r1 | -- | **Not a harness bug** -- this is the research question | DFC `namegate` arm over the same cells, after the v3 re-baseline. |
+| 12 | `DEFAULT_PI` points at a path that no longer exists | every driver passed `--pi` | 5 | **Fixed** -- `_find_pi()`: `$PI_BIN`, then known clone paths | -- |
+| 13 | Qwen only works with an untracked `~/.pi/agent/models.json`; fresh machine fails silently | -- | 7 | **Fixed** -- `pi_runner/pi_models.json` tracked; `check_models_json()` refuses to start without it | `docs/qwen_arm_blocker.md` still says Qwen is blocked; needs a stale-note. |
+| 14 | No prompt caching for Qwen; every turn resends full context | $1.6-2.6 per long cell | -- | **Not fixable** -- Bedrock / model limitation | Cost only; bounded by fix 7 if a cap is set. |
+
+Totals: 8 fixed, 2 mitigated (3, 6), 1 partially (1: detected not prevented),
+3 not fixable / not a harness bug (8, 11, 14).
+
+Scaffold versions: v1 = the 2026-09-16 batch; v2 = fix 6; v3 = fix 8 (current).
+v1 numbers are not comparable to v2/v3 -- re-baseline.
+
 ---
 
 ## 1. Malformed tool name → Bedrock 400 → run dies, scored as a model 0
