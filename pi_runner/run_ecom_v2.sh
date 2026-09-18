@@ -11,6 +11,8 @@
 #   tool name -> Bedrock 400, network drop, tool-call cap) up to that many extra
 #   times; a cell that still ends HARNESS_ERROR keeps score=null and is reported.
 #   MAX_TOOL_CALLS=0 (default) passes --max-tool-calls to run_task.py.
+#   RUN_TASK_EXTRA="--no-pi-extension" (or "--tools read,bash,write,grep,find,ls",
+#   "--scaffold minimal", ...) appends arbitrary run_task.py args, for A/B arms.
 #
 # Qwen runs through the tagged application inference profile in us-east-2 (the bare
 # model ID is IAM-denied on this account). Its metadata (maxTokens 65536) comes from
@@ -26,6 +28,7 @@ PI="${PI:-$HOME/Desktop/Desktop - Aaditya’s MacBook Pro/DAPLab/pi/pi-test.sh}"
 TIMEOUT="${TIMEOUT:-2400}"
 HARNESS_RETRIES="${HARNESS_RETRIES:-2}"
 MAX_TOOL_CALLS="${MAX_TOOL_CALLS:-0}"
+RUN_TASK_EXTRA="${RUN_TASK_EXTRA:-}"
 
 case "$KEY" in
   qwen)  MODEL="arn:aws:bedrock:us-east-2:920736616554:application-inference-profile/xcoflhsehr9h"
@@ -58,6 +61,7 @@ for SEED in $(seq 1 "$SEEDS"); do
         --instance_id "$TASK" --experiment_id "$EXP" \
         --model "$MODEL" --aws_region "$REGION" --pi "$PI" \
         --timeout "$TIMEOUT" --max-tool-calls "$MAX_TOOL_CALLS" --force --quiet \
+        $RUN_TASK_EXTRA \
         > "$OUT" 2> "$RUNS/${EXP}.stderr.log"
       RESULT=$("$PY" -c "
 import json

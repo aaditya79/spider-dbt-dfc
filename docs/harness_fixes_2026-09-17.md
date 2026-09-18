@@ -10,6 +10,7 @@ Files:
 - `pi_runner/run_task.py`
 - `pi_runner/run_ecom_v2.sh`
 - `pi_runner/pi_models.json` (new)
+- `pi_runner/pi_ext/dbt_harness.ts`, `lib.ts`, `lib.test.ts` (new, fix 9)
 
 To revert **everything** in one go: `git checkout <commit-before> -- pi_runner/run_task.py pi_runner/run_ecom_v2.sh && git rm -q pi_runner/pi_models.json`.
 To revert one item, follow its "Revert" line. Items are independent unless noted.
@@ -23,12 +24,12 @@ and where it stands. Fix numbers refer to the sections below.
 
 | # | Problem | Evidence (batch of 15) | Fix | Status | Left to do |
 |---|---|---|---|---|---|
-| 1 | Model emits a shell command as the tool *name* (`"dbt deps"`); Bedrock 400s every later turn; run dies and is scored 0 | 3 cells died (holistic-r3, recharge002-r2 with nothing built; holistic-r2 passed first) | 1 | **Detected & reclassified** -- `verdict: HARNESS_ERROR`, `score: null`, scorer verdict kept in `verdict_scorer` | Not *prevented*: needs a Pi extension to rewrite the call before it enters history. Fix 6 tells the model not to. |
+| 1 | Model emits a shell command as the tool *name* (`"dbt deps"`); Bedrock 400s every later turn; run dies and is scored 0 | 3 cells died (holistic-r3, recharge002-r2 with nothing built; holistic-r2 passed first) | 1, 9 | **Fixed** -- fix 9's `context` hook rewrites any such name in history before every LLM call, so the 400 never happens. Fix 1's detection stays as the safety net (`HARNESS_ERROR` if it somehow still dies). | verify on a v3 batch (unit-tested against the real dead-cell messages; not yet provoked live) |
 | 2 | `agent_settled` after an API error treated as a normal finish | same cells + recharge002-r3 (DNS drop) | 1 | **Fixed** -- `stopReason == "error"` -> `harness_error.kind = api_error` | -- |
-| 3 | `edit` exact-match failures burn turns | 55 failed edits (41 no-match, 14 bad args) | 6 | **Mitigated** by wording (read-before-edit, small edits, fall back to `write`) | Option (a): drop `edit` from `--tools` for Qwen so it must `write` whole files, as the Spider `EditFile` did. One flag, no code. Option (b): fuzzy-match extension (Pi side). |
+| 3 | `edit` exact-match failures burn turns | 55 failed edits (41 no-match, 14 bad args) | 6, 9 | **Fixed** -- fix 9 overrides `edit`: whitespace/indent-mismatched `oldText` is repaired when the match is unique (and the same indent delta is stripped from `newText`); `newText`-only edits become a whole-file overwrite; `edits` as a JSON string and legacy top-level `oldText/newText` are coerced. Live-verified. | Content mismatches (not whitespace) still fail as before -- correctly. `RUN_TASK_EXTRA="--tools read,bash,write,grep,find,ls"` remains available as a no-`edit` arm. |
 | 4 | Calls to a non-existent `python` tool | 5 | 6 | **Fixed** by wording ("no `python` tool; run Python through bash") | verify in v3 batch |
-| 5 | `read` with no `path` | 6 (one per cell) | 6 | **Fixed** by wording | verify in v3 batch |
-| 6 | `read` 50 KB cap truncates `models/shopify.yml` above the target declaration (`shopify__daily_shop` at line 915/1041) | shopify001-r1, shopify002-r1 | 6 | **Mitigated** -- prompt says use `grep -n "  - name: "` then `read` with `offset` | The cap itself is Pi's. Not changing. |
+| 5 | `read` with no `path` | 6 (one per cell) | 6 | **Fixed** by wording | verify in v3 batch (schema validation still rejects it, which is correct) |
+| 6 | `read` 50 KB cap truncates `models/shopify.yml` above the target declaration (`shopify__daily_shop` at line 915/1041) | shopify001-r1, shopify002-r1 | 6, 9 | **Fixed** -- fix 9 overrides `read` with a 200 KB / 5000-line cap (`shopify.yml` now comes back whole: 1041/1041 lines, live-verified). Binary files (the `.duckdb`) get a clear error pointing at the python one-liner instead of garbage. | -- |
 | 7 | No step cap; only wall-clock timeout. Runs plateau for 30-55 min | recharge002-r1 176 calls, shopify002-r2 174 calls, smoke 143 | 4 | **Fixed** (opt-in) -- `--max-tool-calls N`, Pi `abort`, `kind: tool_call_cap`. Default 0 = off | Decide default N (Spider used 30) and whether capped = 0 or null. |
 | 8 | Bash output truncation (2000 lines / 50 KB) on 105-model `dbt run`s | 2 | -- | **Not fixed** -- constants in Pi's `bash.ts`, no settings hook | Only by patching Pi. Tail is kept so dbt errors survive. |
 | 9 | Cost / tokens recorded from the last turn only | smoke run: $0.03 reported vs $2.56 actual (144 turns, 11.6 M input) | 3 | **Fixed** -- summed per assistant message; `usage_total` in record | Old records need recompute from `trajectory.jsonl`. |
@@ -38,8 +39,8 @@ and where it stands. Fix numbers refer to the sections below.
 | 13 | Qwen only works with an untracked `~/.pi/agent/models.json`; fresh machine fails silently | -- | 7 | **Fixed** -- `pi_runner/pi_models.json` tracked; `check_models_json()` refuses to start without it | `docs/qwen_arm_blocker.md` still says Qwen is blocked; needs a stale-note. |
 | 14 | No prompt caching for Qwen; every turn resends full context | $1.6-2.6 per long cell | -- | **Not fixable** -- Bedrock / model limitation | Cost only; bounded by fix 7 if a cap is set. |
 
-Totals: 8 fixed, 2 mitigated (3, 6), 1 partially (1: detected not prevented),
-3 not fixable / not a harness bug (8, 11, 14).
+Totals (after fix 9): 11 fixed, 3 out of scope (8: Pi-internal bash cap,
+11: the research question, 14: model limitation).
 
 Scaffold versions: v1 = the 2026-09-16 batch; v2 = fix 6; v3 = fix 8 (current).
 v1 numbers are not comparable to v2/v3 -- re-baseline.
@@ -240,6 +241,63 @@ and set `SCAFFOLD_VERSION = 2`.
 would remove the need for network entirely, but the fixtures are copied pristine
 from `Spider2/` by design (the `order_data` blocker is part of the task), so
 patching one is out of scope here.
+
+## 9. Pi extension: tool-name sanitizer, `edit` repair, larger `read` (2026-09-18)
+
+**Problem.** Items 1, 3 and 6 could only be mitigated from outside Pi: the
+Bedrock 400 happens because the bad tool name is *in Pi's message history*; the
+`edit` failures are Pi's exact-match rule; the `read` cap is Pi's constant.
+Patching Pi was ruled out (keep the clone identical to upstream).
+
+**Fix.** Pi's extension API covers all three without touching Pi source. One
+file, `pi_runner/pi_ext/dbt_harness.ts`, loaded per run with `-e`:
+
+- `context` hook (fires before every LLM call, may rewrite the messages):
+  any `toolCall.name` / `toolResult.toolName` outside `[a-zA-Z0-9_-]+` is
+  rewritten (`"dbt deps"` -> `dbt_deps`). The model still sees Pi's "Tool X not
+  found" result; the session just no longer dies.
+- `edit` override (`pi.registerTool` with the built-in's name replaces it;
+  wraps `createEditToolDefinition` so behaviour is otherwise identical) with a
+  `prepareArguments` shim: `edits` given as a JSON string is parsed; legacy
+  top-level `oldText/newText` is wrapped; an edit with `newText` but no
+  `oldText` (8 of the 14 validation errors) becomes a whole-file overwrite;
+  an `oldText` that differs from the file only in indentation / whitespace
+  runs is replaced by the exact file slice **when the match is unique**, and
+  the same indentation delta is stripped from `newText` so the file keeps its
+  real indentation (without that, a 4-space-indented edit of
+  `dbt_project.yml` produced invalid YAML -- caught in the live test).
+- `read` override: 200 KB / 5000 lines, same `path/offset/limit` schema and
+  the same `[Showing lines a-b of n. Use offset=…]` footer. Binary files get
+  an error naming the python one-liner instead of 1 line of garbage.
+
+Pure logic lives in `pi_runner/pi_ext/lib.ts` (no Pi imports) with tests in
+`lib.test.ts` (`<pi>/node_modules/.bin/tsx pi_runner/pi_ext/lib.test.ts`),
+including a replay of the exact messages from the dead `recharge002-r2` cell.
+
+`run_task.py`: `--pi-extension <file>` (default this one), `--no-pi-extension`
+for stock Pi. `pi_extension` is recorded in the run record and the startup log.
+`run_ecom_v2.sh`: `RUN_TASK_EXTRA` passes arbitrary args through for A/B arms.
+
+**Verified live** (shopify001 fixture, Qwen, scripted prompts): `read
+models/shopify.yml` returns 1041/1041 lines (built-in: 864); an `edit` with
+4-space over-indented `oldText` succeeds and the file stays unindented; a
+`newText`-only edit overwrites `packages.yml`; `read shopify.duckdb` returns
+the binary-file error and the model then used the suggested query. The
+sanitizer is unit-tested against the real dead-cell trace but has not been
+provoked live (v2/v3 prompt wording steered the model into `bash` instead).
+
+**Where.** New: `pi_runner/pi_ext/{dbt_harness.ts,lib.ts,lib.test.ts}`.
+`run_task.py`: `PI_EXTENSION`, the two argparse flags, the `-e` append in
+`main`, `"pi_extension"` in the record. `run_ecom_v2.sh`: `RUN_TASK_EXTRA`.
+
+**Revert.** Without editing: `--no-pi-extension` (or
+`RUN_TASK_EXTRA="--no-pi-extension"`) runs stock Pi tools. To remove: delete
+`pi_runner/pi_ext/`, the `PI_EXTENSION` constant, the two flags and the
+`pi_extra += ["-e", …]` block. Pi itself is untouched either way.
+
+**Interaction with other fixes.** Fix 1 (detection) stays: if a session still
+dies for any reason it is `HARNESS_ERROR`, not 0. Fix 6's wording about tool
+names, `read` caps and `edit` remains accurate but is now belt-and-braces.
 
 ---
 

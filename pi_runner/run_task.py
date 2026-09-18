@@ -82,6 +82,10 @@ DEFAULT_PI = _find_pi()
 # the copy in its agent dir, so this is an install artefact; check_models_json()
 # refuses to start an ARN-model run without it rather than fail 100% silently.
 PI_MODELS_JSON = os.path.join(HERE, "pi_models.json")
+# Pi extension loaded per run (-e). Sanitizes tool names in history (prevents the
+# Bedrock 400 that killed 3/15 Qwen cells), repairs whitespace-mismatched edit
+# oldText / newText-only edits, and lifts the read cap. See the file header.
+PI_EXTENSION = os.path.join(HERE, "pi_ext", "dbt_harness.ts")
 DEFAULT_CONDA_BIN = os.path.expanduser("~/miniconda3/envs/spider2/bin")
 DEFAULT_RUNS_ROOT = os.path.join(SPIDER_ROOT, "runs", "pi")
 
@@ -801,6 +805,10 @@ def main():
     ap.add_argument("--aws_profile", default="default")
     ap.add_argument("--aws_region", default="us-east-1")
     ap.add_argument("--timeout", type=float, default=3600.0)
+    ap.add_argument("--pi-extension", default=PI_EXTENSION,
+                    help="Pi extension file passed as -e (default: pi_ext/dbt_harness.ts)")
+    ap.add_argument("--no-pi-extension", action="store_true",
+                    help="run stock Pi tools with no extension (pre-2026-09-18 behaviour)")
     ap.add_argument("--max-tool-calls", type=int, default=0,
                     help="abort a round after this many tool calls (0 = no cap; the "
                          "Spider harness capped at 30 steps). Marks the run HARNESS_ERROR "
@@ -861,7 +869,13 @@ def main():
         else:
             prompt_text, system_prompt, scaffold_used = build_prompts(
                 args.scaffold, args.instance_id, instruction)
-    pi_extra = ["--system-prompt", system_prompt] if system_prompt else None
+    pi_extra = ["--system-prompt", system_prompt] if system_prompt else []
+    pi_extension = None if args.no_pi_extension else args.pi_extension
+    if pi_extension:
+        if not os.path.isfile(pi_extension):
+            raise SystemExit(f"--pi-extension {pi_extension!r} does not exist")
+        pi_extra += ["-e", pi_extension]
+    pi_extra = pi_extra or None
 
     check_models_json(args.model)
     env = build_env(args.aws_profile, args.aws_region, args.conda_bin,
@@ -874,6 +888,7 @@ def main():
                      else args.scaffold)
     print(f"[runner] scaffold   : {scaffold_name}"
           f"{' (+ --system-prompt)' if system_prompt else ''}", file=sys.stderr)
+    print(f"[runner] extension  : {pi_extension or 'none (stock Pi tools)'}", file=sys.stderr)
     print(f"[runner] dfc policy : {args.dfc_policy or 'OFF'} "
           f"(max retries {args.dfc_max_retries})", file=sys.stderr)
 
@@ -945,6 +960,7 @@ def main():
         "scaffold": None if (args.prompt is not None or args.no_scaffold) else args.scaffold,
         "scaffold_version": SCAFFOLD_VERSION,
         "system_prompt": system_prompt,
+        "pi_extension": pi_extension,
         "wall_clock_s": round(wall, 1), "pi_exit_code": exit_code,
         "n_rounds": len(rounds),
         "rounds": [{k: v for k, v in r.items() if k != "tool_calls"} for r in rounds],
