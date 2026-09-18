@@ -1,4 +1,4 @@
-# Harness fixes, 2026-09-17
+# Harness fixes, 2026-09-17 / 18
 
 Fixes for the problems surfaced by the first `spider_pi_2.0` Qwen batch
 (`runs/pi/ecom-v2-qwen-*`, 15 cells, 2026-09-16). Each item says what was wrong,
@@ -193,16 +193,34 @@ before `build_env` in `main`. New file `pi_runner/pi_models.json`.
 **Revert.** Delete the function and its call; `git rm pi_runner/pi_models.json`.
 Runs would then fail at the first API call instead of at startup.
 
+## 8. Rule 4 vs rule 8: `dbt deps` is now the named networking exception (scaffold v3)
+
+**Problem.** Rule 4 said to run `dbt deps` when `dbt_packages/` is missing; rule 8
+said "do not use networking". `dbt deps` fetches from the dbt hub. The
+`shopify_holistic_reporting001` fixture ships without `dbt_packages/`, so every
+run of it had to break one rule -- and every cell that passed broke rule 8.
+
+**Fix.** Rule 8 now reads: "Do not use networking (the one exception is
+`dbt deps`, which fetches packages), …". Rule 4 unchanged. `SCAFFOLD_VERSION = 3`.
+
+**Where.** `run_task.py`: `DBT_SYSTEM_PROMPT` rule 8; `SCAFFOLD_VERSION`.
+
+**Revert.** Restore the rule 8 line from `git show 3a9f0ea:pi_runner/run_task.py`
+and set `SCAFFOLD_VERSION = 2`.
+
+**Alternative not taken.** Vendoring `dbt_packages/` into the holistic fixture
+would remove the need for network entirely, but the fixtures are copied pristine
+from `Spider2/` by design (the `order_data` blocker is part of the task), so
+patching one is out of scope here.
+
 ---
 
 ## Not changed (known, deliberate)
 
 - **Pi source** — untouched; the clone is still identical to upstream.
-- **Rule 4 vs rule 8** (`dbt deps` vs "no networking") in the prompt — a policy
-  call. `dbt deps` ran successfully in every holistic cell, so the network rule
-  is being ignored when it matters.
-- **Bash output truncation** (2000 lines / 50 KB) — Pi's default; the tail is
-  kept so dbt errors survive. Left alone.
+- **Bash output truncation** is Pi's `DEFAULT_MAX_LINES`/`DEFAULT_MAX_BYTES`
+  (2000 / 50 KB), hardcoded in `packages/coding-agent/src/core/tools/bash.ts`
+  with no settings hook -- changing it means patching Pi. Left alone.
 - **`pi_runner/namegate_bin/`** — untracked `dbt` shim from earlier work,
   unreferenced; not part of this change.
 - **The `--dfc-policy` loop** — unchanged. Harness-error detection applies to

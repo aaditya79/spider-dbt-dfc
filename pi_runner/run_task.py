@@ -216,7 +216,7 @@ Finishing: there is no terminate action. When the task is complete, stop calling
 5. Run `dbt run --profiles-dir .` to execute the transformations. Do not pipe dbt run through grep, tail, head, tee, sed, or awk; the bash tool already truncates long output and saves the full log to a temp file.
 6. Verify generated models where practical by querying the database, only after `dbt run` succeeds.
 7. Do not finish until all required SQL models are complete according to the YAML and `dbt run` succeeds.
-8. Do not use networking, privilege escalation, destructive system commands, or interactive editors.
+8. Do not use networking (the one exception is `dbt deps`, which fetches packages), privilege escalation, destructive system commands, or interactive editors.
 """
 
 TASK_TEMPLATE = """\
@@ -251,7 +251,9 @@ SCAFFOLDS = ("minimal", "dbt")
 #   1: 2026-09-16 first port of DBT_SYSTEM to Pi (ecom-v2-qwen-* batch)
 #   2: 2026-09-17 tool-name discipline, no `python` tool, read needs path,
 #      yml truncation guidance (grep -n then offset), write-over-edit advice
-SCAFFOLD_VERSION = 2
+#   3: 2026-09-18 rule 8 names `dbt deps` as the one permitted network use
+#      (it contradicted rule 4; fixtures without dbt_packages/ need deps)
+SCAFFOLD_VERSION = 3
 
 
 def build_prompts(scaffold, instance_id, instruction):
