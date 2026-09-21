@@ -91,7 +91,12 @@ DEFAULT_RUNS_ROOT = os.path.join(SPIDER_ROOT, "runs", "pi")
 
 DEFAULT_MODEL = "us.anthropic.claude-opus-4-8"   # bare inference-profile ID, NOT the ARN
 DEFAULT_PROVIDER = "amazon-bedrock"
-DEFAULT_TOOLS = "read,bash,edit,write,grep,find,ls"  # grep/find/ls are OFF by default in Pi
+# grep/find/ls are OFF by default in Pi. duckdb_sql and terminate are provided by
+# the extension (pi_ext/dbt_harness.ts) but MUST also be named here: --tools is an
+# allowlist that filters extension tools out of the registry entirely
+# (agent-session.ts isAllowedTool). --no-pi-extension drops them automatically.
+DEFAULT_TOOLS = "read,bash,edit,write,grep,find,ls,duckdb_sql,terminate"
+EXTENSION_TOOLS = ("duckdb_sql", "terminate")
 
 
 # ------------------------------------------------------ produced-db lookup ----
@@ -195,21 +200,15 @@ You solve the task by calling the tools below. Every step until the task is comp
 
 # TOOLS
 
-The only tools are exactly these seven, by these exact names: bash, read, ls, find, grep, write, edit. A shell command is never a tool name -- `dbt run` or `python` go in the `command` argument of the bash tool.
+The only tools are exactly these nine, by these exact names: bash, read, ls, find, grep, write, edit, duckdb_sql, terminate. A shell command is never a tool name -- `dbt run` goes in the `command` argument of the bash tool. There is no `python` tool.
 
-- bash: run a non-interactive shell command in the project root. `dbt` and `python` are on PATH. Use it for `dbt deps`, `dbt run --profiles-dir .`, and for querying the database (see below).
-- read: read one file; `path` is required. Files only -- for a directory use ls. Output is capped at about 50KB / 860 lines, so a long schema YAML gets cut off: list the declared models first with `grep -n "  - name: " models/*.yml`, then read the file with `offset` to reach the part you need.
-- ls: list a directory. find: find files by glob. grep: search file contents.
+- bash: run a non-interactive shell command in the project root. `dbt` is on PATH. Use it for `dbt deps` and `dbt run --profiles-dir .`.
+- duckdb_sql: run a read-only SQL query against the project's DuckDB file (`file_path` is the `*.duckdb` named in profiles.yml, e.g. `recharge.duckdb`; `command` is the SQL). Use it for every query: listing tables (`show tables`), describing columns, sampling rows, and verifying your models after `dbt run`. It cannot create or change tables; only dbt does that.
+- read: read one file; `path` is required. Files only -- for a directory use ls. Do not read the .duckdb file.
+- ls: list a directory. find: find files by glob. grep: search file contents (e.g. `grep -n "  - name: " models/*.yml` lists every declared model).
 - write: create a new file, or overwrite an existing file in full. Prefer write for a new model file or when replacing most of a file.
-- edit: change an existing file by exact-text replacement. `oldText` must match the file byte-for-byte including whitespace, so read the file immediately before editing and keep each edit small; if an edit fails twice, use write instead.
-
-Querying the DuckDB database: there is no `duckdb` CLI and no `python` tool in this environment. Run the Python module through the bash tool, e.g.
-
-    python -c "import duckdb; print(duckdb.connect('<name>.duckdb').sql(\\"select * from my_table limit 10\\"))"
-
-The database file is the `*.duckdb` in the project root; `profiles.yml` names it. Do not read the .duckdb file with the read tool.
-
-Finishing: there is no terminate action. When the task is complete, stop calling tools and reply with a short summary naming the DuckDB file and the model(s) you materialized. Do not produce a CSV as the deliverable.
+- edit: change an existing file by exact-text replacement. `oldText` must match the file including whitespace, so read the file immediately before editing and keep each edit small; if an edit fails twice, use write instead.
+- terminate: call exactly once, at the end, with the DuckDB file name from profiles.yml, after `dbt run` succeeds and you have verified the target model(s) with duckdb_sql. Never terminate with a CSV file name.
 
 # DBT PROJECT RULES
 
@@ -221,6 +220,8 @@ Finishing: there is no terminate action. When the task is complete, stop calling
 6. Verify generated models where practical by querying the database, only after `dbt run` succeeds.
 7. Do not finish until all required SQL models are complete according to the YAML and `dbt run` succeeds.
 8. Do not use networking (the one exception is `dbt deps`, which fetches packages), privilege escalation, destructive system commands, or interactive editors.
+9. Never copy files from dbt_packages/ into models/. A .sql file containing `{% macro %}` belongs in macros/, never in models/ (dbt would run it as a model and fail). If an upstream package model errors but your target model does not depend on it, write and build your target first; fix upstream only if the target itself needs it.
+10. The YAML is the spec, not just a name list. Before terminate: `describe` the target with duckdb_sql and confirm every column declared for it in the YAML is present with that exact name; if the YAML declares a `unique` or `unique_combination_of_columns` test, run `select <key>, count(*) from <model> group by <key> having count(*) > 1` and expect no rows; if the description says each record represents a day, build on the project's calendar spine so every day has a row, not only days with activity.
 """
 
 TASK_TEMPLATE = """\
@@ -257,7 +258,14 @@ SCAFFOLDS = ("minimal", "dbt")
 #      yml truncation guidance (grep -n then offset), write-over-edit advice
 #   3: 2026-09-18 rule 8 names `dbt deps` as the one permitted network use
 #      (it contradicted rule 4; fixtures without dbt_packages/ need deps)
-SCAFFOLD_VERSION = 3
+#   4: 2026-09-21 duckdb_sql + terminate tools (ported from
+#      codeboi07/Self-improving-Harness) replace the python one-liner and the
+#      "just stop" finish; rule 9: no dbt_packages/ copying, macros not in models/,
+#      target first (both v3 smoke cells died on macros-as-models)
+#   5: 2026-09-21 rule 10: verify declared columns / unique key / daily grain
+#      against the YAML before terminate (all four v4 cells built the right
+#      table, went green on dbt run, and terminated with the wrong shape)
+SCAFFOLD_VERSION = 5
 
 
 def build_prompts(scaffold, instance_id, instruction):
@@ -272,7 +280,7 @@ def build_prompts(scaffold, instance_id, instruction):
 
 # ------------------------------------------------------------- DFC policy ----
 
-DFC_POLICIES = ("recharge001", "idtype", "enum", "namegate")
+DFC_POLICIES = ("recharge001", "idtype", "enum", "namegate", "shape")
 
 
 def _import_agent_module(modname):
@@ -343,6 +351,10 @@ def _load_dfc_checker(name):
       namegate    -- a model the agent creates must carry a name declared in the
                      project's schema YAML (task-agnostic; derives the spec from the
                      pristine fixture, never from gold).
+      shape       -- a built target must have every column its YAML declares, honour
+                     the YAML's uniqueness test, and (for dense daily models) cover the
+                     project's calendar spine. Task-agnostic, gold-free; only checks
+                     tables that exist, so `namegate,shape` is the natural stack.
 
     Every checker STEERS only; the final 0/1 always comes from score_run.py/duckdb_match.
     """
@@ -358,6 +370,9 @@ def _load_dfc_checker(name):
     if name == "namegate":
         mod = _import_agent_module("dfc_check_namegate")
         return mod.check_namegate, mod.retry_message
+    if name == "shape":
+        mod = _import_agent_module("dfc_check_shape")
+        return mod.check_shape, mod.retry_message
     mod = _import_agent_module("dfc_check_enum")
     return mod.check_recharge001_line_item_type, mod.retry_message
 
@@ -534,6 +549,10 @@ def build_env(aws_profile, aws_region, conda_bin, nudge_mode="off"):
     return env
 
 
+class StallError(Exception):
+    """No event from Pi for longer than --stall-timeout."""
+
+
 class PiRpcSession:
     """Spawn `pi --mode rpc` and drive it over JSONL stdin/stdout.
 
@@ -575,8 +594,15 @@ class PiRpcSession:
         self.proc.stdin.write((json.dumps(obj) + "\n").encode("utf-8"))
         self.proc.stdin.flush()
 
-    def events(self, deadline):
-        """Yield (raw_line, parsed_or_None) until EOF or deadline."""
+    def events(self, deadline, stall_timeout=0):
+        """Yield (raw_line, parsed_or_None) until EOF or deadline.
+
+        `stall_timeout` > 0 raises StallError when no event at all arrives for that
+        many seconds. A hung Bedrock stream keeps the Pi process alive and silent
+        (pi has no read timeout), which otherwise costs the full wall-clock budget:
+        3/5 cells on 2026-09-21 went quiet within the same 30 s and sat for 35 min.
+        """
+        last = time.time()
         while True:
             remaining = deadline - time.time()
             if remaining <= 0:
@@ -584,7 +610,10 @@ class PiRpcSession:
             try:
                 raw = self._q.get(timeout=min(remaining, 5.0))
             except queue.Empty:
+                if stall_timeout and time.time() - last > stall_timeout:
+                    raise StallError(f"no Pi event for {stall_timeout:.0f}s")
                 continue
+            last = time.time()
             if raw is None:
                 return
             line = raw.rstrip(b"\r\n")
@@ -632,8 +661,11 @@ class PiRpcSession:
 #             message_end for role user/assistant (carries content + usage),
 #             tool_execution_start, tool_execution_end, agent_settled,
 #             agent_end WITHOUT its `messages` replay
-#   dropped : message_start, turn_end, message_end for role toolResult
-TRAJ_DROP = {"message_start", "turn_end"}
+#   dropped : message_start, turn_end, message_end for role toolResult, and the
+#             per-token streaming deltas message_update / tool_execution_update
+#             (~70% of all lines; the final content is in message_end /
+#             tool_execution_end)
+TRAJ_DROP = {"message_start", "turn_end", "message_update", "tool_execution_update"}
 
 
 def traj_record(ev):
@@ -680,7 +712,7 @@ def _sum_usage(rounds):
 
 
 def drive_round(sess, traj_fh, deadline, req_id, prompt_text, round_no, quiet,
-                max_tool_calls=0):
+                max_tool_calls=0, stall_timeout=0):
     """Send one prompt and drive a full agent_start..agent_settled cycle.
 
     Events are teed to the shared trajectory file after de-duplication (see
@@ -711,7 +743,7 @@ def drive_round(sess, traj_fh, deadline, req_id, prompt_text, round_no, quiet,
 
     sess.send({"id": req_id, "type": "prompt", "message": prompt_text})
     try:
-        for raw, ev in sess.events(deadline):
+        for raw, ev in sess.events(deadline, stall_timeout=stall_timeout):
             if ev is None:
                 traj_fh.write(raw); traj_fh.flush()
                 continue
@@ -759,6 +791,14 @@ def drive_round(sess, traj_fh, deadline, req_id, prompt_text, round_no, quiet,
             elif t == "agent_settled":
                 r["settled"] = True
                 break
+    except StallError as e:
+        r["harness_error"] = r["harness_error"] or {"kind": "stall", "message": str(e),
+                                                    "after_tool_calls": len(r["tool_calls"])}
+        print(f"[runner] HARNESS: {e} -- aborting round {round_no}", file=sys.stderr)
+        try:
+            sess.send({"type": "abort"})
+        except Exception:
+            pass
     except TimeoutError as e:
         r["timed_out"] = True
         print(f"[runner] TIMEOUT in round {round_no}: {e}", file=sys.stderr)
@@ -809,6 +849,9 @@ def main():
                     help="Pi extension file passed as -e (default: pi_ext/dbt_harness.ts)")
     ap.add_argument("--no-pi-extension", action="store_true",
                     help="run stock Pi tools with no extension (pre-2026-09-18 behaviour)")
+    ap.add_argument("--stall-timeout", type=float, default=600.0,
+                    help="seconds with no Pi event before the round is aborted and the run "
+                         "marked HARNESS_ERROR kind=stall (0 = off). Default 600.")
     ap.add_argument("--max-tool-calls", type=int, default=0,
                     help="abort a round after this many tool calls (0 = no cap; the "
                          "Spider harness capped at 30 steps). Marks the run HARNESS_ERROR "
@@ -875,6 +918,10 @@ def main():
         if not os.path.isfile(pi_extension):
             raise SystemExit(f"--pi-extension {pi_extension!r} does not exist")
         pi_extra += ["-e", pi_extension]
+    else:
+        # stock Pi has no duckdb_sql/terminate; asking for them would be a no-op
+        # at best, so strip them from the allowlist
+        args.tools = ",".join(t for t in args.tools.split(",") if t not in EXTENSION_TOOLS)
     pi_extra = pi_extra or None
 
     check_models_json(args.model)
@@ -899,7 +946,8 @@ def main():
     with open(traj_path, "wb") as traj:
         # --- round 0: the task itself -----------------------------------
         rounds.append(drive_round(sess, traj, deadline, "req-1", prompt_text, 0, args.quiet,
-                                  max_tool_calls=args.max_tool_calls))
+                                  max_tool_calls=args.max_tool_calls,
+                                  stall_timeout=args.stall_timeout))
 
         # --- DFC loop: check -> steer -> recheck ------------------------
         if checker and rounds[-1]["settled"]:
@@ -925,7 +973,8 @@ def main():
                 msg = retry_message(verdict)
                 print(f"[runner] DFC RETRY {attempt}/{args.dfc_max_retries}", file=sys.stderr)
                 r = drive_round(sess, traj, deadline, f"dfc-{attempt}", msg, attempt, args.quiet,
-                                max_tool_calls=args.max_tool_calls)
+                                max_tool_calls=args.max_tool_calls,
+                                stall_timeout=args.stall_timeout)
                 rounds.append(r)
                 if not r["settled"]:
                     break

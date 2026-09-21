@@ -23,6 +23,15 @@
  *     declaration. Text files only; binaries (the .duckdb) get a clear error
  *     instead of garbage.
  *
+ *  4. `duckdb_sql` tool: read-only SQL against the project's DuckDB through
+ *     pi_ext/duckdb_query.py (ported from codeboi07/Self-improving-Harness). The
+ *     model kept calling a non-existent `python` tool -- it wants a query tool;
+ *     this gives it one, with DDL/DML/ATTACH/COPY rejected so tables are only
+ *     ever built by dbt.
+ *
+ *  5. `terminate` tool (same source): an explicit finish signal, as the Spider
+ *     harness had. Returns terminate:true so Pi skips the follow-up LLM call.
+ *
  * Everything here is additive and reversible: drop the -e flag and Pi is stock.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -30,7 +39,28 @@ import { createEditToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { READ_MAX_BYTES, READ_MAX_LINES, fuzzyFindExact, looksBinary, resolveIn, sanitizeToolNames, stripLinePrefix, uniformIndentDelta } from "./lib.ts";
+
+const PYTHON = process.env.SPIDER_PYTHON ?? "python";
+const DUCKDB_HELPER = join(dirname(fileURLToPath(import.meta.url)), "duckdb_query.py");
+const SQL_MAX_OUTPUT_CHARS = 30000;
+
+function runHelper(args: string[], cwd: string, signal?: AbortSignal): Promise<{ code: number; stdout: string; stderr: string }> {
+	return new Promise((resolve) => {
+		const child = spawn(PYTHON, [DUCKDB_HELPER, ...args], { cwd, signal, env: { ...process.env, PYTHONUTF8: "1" } });
+		let stdout = "";
+		let stderr = "";
+		child.stdout.setEncoding("utf8");
+		child.stderr.setEncoding("utf8");
+		child.stdout.on("data", (d) => (stdout += d));
+		child.stderr.on("data", (d) => (stderr += d));
+		child.on("error", (e) => resolve({ code: -1, stdout, stderr: stderr + String(e) }));
+		child.on("close", (code) => resolve({ code: code ?? -1, stdout, stderr }));
+	});
+}
 
 // -------------------------------------------------------------- extension ----
 
@@ -42,6 +72,49 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("session_start", (_event, ctx) => {
 		const cwd = ctx.cwd;
+
+		// NOTE: --tools is an allowlist that filters extension tools out of Pi's
+		// registry entirely (agent-session.ts isAllowedTool), whenever they are
+		// registered. run_task.py therefore names duckdb_sql and terminate in
+		// --tools; without that the model never sees them (confirmed live: it
+		// shelled out to a non-existent duckdb CLI instead).
+	// 4. duckdb_sql: read-only queries via the Python helper (no `duckdb` CLI here).
+		pi.registerTool({
+			name: "duckdb_sql",
+			label: "DuckDB SQL",
+			description:
+				"Run a read-only SQL query against the project's DuckDB database file. Returns up to 200 rows as text when output is 'direct', or writes all rows to a CSV when output is a relative file path. Use it to inspect source tables and to verify dbt output tables. DDL/DML, ATTACH, COPY and EXPORT are rejected: build tables only with dbt.",
+			promptSnippet: "Run read-only SQL against the project's DuckDB file",
+			parameters: Type.Object({
+				file_path: Type.String({ description: "DuckDB file, relative to the working directory (see profiles.yml)" }),
+				command: Type.String({ description: "The SQL query to run" }),
+				output: Type.Optional(Type.String({ description: "'direct' (default) to return rows inline, or a CSV path relative to the working directory" })),
+			}),
+			async execute(_id: string, params: { file_path: string; command: string; output?: string }, signal: AbortSignal | undefined, _onUpdate: unknown, ctx: any) {
+				const cwd = (ctx as { cwd?: string })?.cwd ?? process.cwd();
+				const r = await runHelper(["--db", params.file_path, "--sql", params.command, "--output", params.output ?? "direct"], cwd, signal);
+				if (r.code !== 0) throw new Error(r.stderr.trim() || `duckdb_query.py exited with ${r.code}`);
+				const out = r.stdout.length <= SQL_MAX_OUTPUT_CHARS ? r.stdout : r.stdout.slice(0, SQL_MAX_OUTPUT_CHARS) + `\n... [truncated ${r.stdout.length - SQL_MAX_OUTPUT_CHARS} chars]`;
+				return { content: [{ type: "text", text: out }], details: { file_path: params.file_path, output: params.output ?? "direct" } };
+			},
+		} as any);
+
+		// 5. terminate: explicit finish, as the Spider harness had.
+		pi.registerTool({
+			name: "terminate",
+			label: "Terminate",
+			description:
+				"Declare the task finished. For dbt tasks the output is the DuckDB file name from profiles.yml (for example 'recharge.duckdb'), not a CSV. Call this exactly once, at the end, after `dbt run` has succeeded.",
+			promptSnippet: "Finish the task and report the final answer",
+			parameters: Type.Object({
+				output: Type.String({ description: "Final answer: the DuckDB file name, or a literal answer if the task asks for one" }),
+			}),
+			async execute(_id: string, params: { output: string }) {
+				return { content: [{ type: "text", text: `Terminated with output: ${params.output}` }], details: { output: params.output }, terminate: true };
+			},
+		} as any);
+
+		pi.setActiveTools([...new Set([...pi.getActiveTools(), "duckdb_sql", "terminate"])]);
 
 		// 2. edit: built-in behaviour + argument repair.
 		const baseEdit = createEditToolDefinition(cwd);

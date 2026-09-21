@@ -1,4 +1,4 @@
-# Harness fixes, 2026-09-17 / 18
+# Harness fixes, 2026-09-17 / 18 / 21
 
 Fixes for the problems surfaced by the first `spider_pi_2.0` Qwen batch
 (`runs/pi/ecom-v2-qwen-*`, 15 cells, 2026-09-16). Each item says what was wrong,
@@ -298,6 +298,94 @@ provoked live (v2/v3 prompt wording steered the model into `bash` instead).
 **Interaction with other fixes.** Fix 1 (detection) stays: if a session still
 dies for any reason it is `HARNESS_ERROR`, not 0. Fix 6's wording about tool
 names, `read` caps and `edit` remains accurate but is now belt-and-braces.
+
+## 10. `duckdb_sql` + `terminate` tools, scaffold v4 (2026-09-21)
+
+Ported from `codeboi07/Self-improving-Harness` (`ext/spider_tools.ts`,
+`ext/duckdb_query.py`, reference only -- nothing is pushed there).
+
+**Problem.** Qwen kept calling a non-existent `python` tool: it wanted a query tool
+and we had told it to shell out with a quoted one-liner. It also had no explicit
+finish, so runs ended when it stopped talking (or never).
+
+**Fix.** Two tools registered by `pi_ext/dbt_harness.ts`: `duckdb_sql` (read-only;
+`pi_ext/duckdb_query.py` rejects DDL/DML/ATTACH/COPY/EXPORT/LOAD by statement type)
+and `terminate` (returns `terminate: true`, so Pi skips the follow-up LLM call).
+Scaffold v4 describes both and adds rule 9 (never copy `dbt_packages/` into
+`models/`; macros never in `models/`; build the target first) after both v3 smoke
+cells died on macros-as-models.
+
+**Gotcha found.** Pi's `--tools` is an allowlist that filters extension tools out of
+the registry entirely (`agent-session.ts` `isAllowedTool`), whenever they are
+registered. `DEFAULT_TOOLS` now names `duckdb_sql,terminate`; `--no-pi-extension`
+strips them again. Without this the model shelled out to a non-existent duckdb CLI.
+
+**Result (v4 smoke, 5 tasks).** 0 hallucinated tool names, 0 shell-outs for
+queries, `terminate` called correctly in 4/4 finished cells, run time 1-6 min.
+
+**Revert.** `--no-pi-extension`; or delete the two `registerTool` blocks and
+`pi_ext/duckdb_query.py`, and drop the two names from `DEFAULT_TOOLS`.
+
+## 11. DFC policy `shape`, scaffold v5 (2026-09-21)
+
+**Problem.** Every v4 cell built the right-named table, `dbt run` was green, the
+model called `terminate` -- and 4/4 scored 0: recharge001 emitted 18 columns, none
+of the 9 declared; holistic dropped columns; daily_shop had 10 rows of activity days
+instead of one per calendar day (2077); discounts fanned out to 6 rows with NULL
+keys. The model treats the YAML as a name lookup, not a spec.
+
+**Fix.** `dfc/spider_agent/agent/dfc_check_shape.py`, `--dfc-policy shape`.
+Gold-free, task-agnostic. For each declared-but-unbuilt model that HAS a table:
+every declared column present; the YAML's uniqueness test holds with dbt semantics
+(`group by key having count(*) > 1`; NULLs grouped, since gold has NULL key parts);
+dense daily models (declared key absent or <= 2 cols incl. `date_day`) must cover
+>= 50% of the project's calendar/spine days. Absent tables are skipped (namegate's
+job, and the shopify fixtures declare other tasks' models). Scaffold v5 rule 10
+asks the model to run the same checks itself before `terminate`.
+
+Safe to enforce columns: the scorer matches gold columns by value against any pred
+column, so extra/renamed columns never cost a pass. Verified on the v4 cells: catches
+recharge001 / shopify001 / shopify002; passes both v1 gold-passes' tables.
+
+**Known limit.** Columns the YAML does not declare cannot be checked (the v4
+holistic failure was 4 `klaviyo_sum_revenue_*` columns; the YAML declares 28 of the
+gold's 47).
+
+**Result (v5 + shape, 5 tasks).** shopify002 PASS (shape steered a missing
+column), holistic PASS, recharge001 shape-clean but `amount` wrong (the existing
+`recharge001` checker's domain: run `shape,recharge001`), shopify001 dense but 2820
+vs 2077 rows (fixture calendar runs to today, gold cut 2024-09 -- not model-fixable),
+recharge002 stalled.
+
+**Revert.** Don't pass `--dfc-policy shape`. To remove: delete the file and its two
+entries in `run_task.py` (`DFC_POLICIES`, `_load_dfc_checker`).
+
+## 12. Stall watchdog + streaming deltas dropped (2026-09-21)
+
+**Problem.** Twice today 3/5 and 2/3 parallel cells went silent within the same
+30 s (Bedrock-side), mid-stream. Pi has no read timeout, so each sat until the
+40-min wall clock and was scored 0. Separately, `message_update` /
+`tool_execution_update` per-token events were ~70% of every trajectory.jsonl
+(714 of 883 lines even in the v1 traces).
+
+**Fix.** `--stall-timeout` (default 600 s): no Pi event for that long -> `abort`,
+`harness_error.kind = stall`, `HARNESS_ERROR` unless the run had already passed
+(shopify002 did: stalled in the retry round after the table was correct, kept its
+1). Both delta types added to `TRAJ_DROP` (1022 -> 264 lines on a v5 cell).
+
+**Revert.** `--stall-timeout 0`; remove the two names from `TRAJ_DROP`.
+
+## 13. Scorer patch: numeric sort before tolerance compare (2026-09-21)
+
+Ported one hunk from `codeboi07/Self-improving-Harness` (`d5cfe39`) into
+`Spider2/spider2-dbt/evaluation_suite/eval_utils.py`: `ignore_order` sorted
+values as strings, so floats differing in a rounding tail could swap and fail a
+correct table. Re-scored all 17 cells on disk: no score changed. Lives in the
+gitignored `Spider2/` clone; revert with
+`git -C Spider2 checkout -- spider2-dbt/evaluation_suite/eval_utils.py`.
+
+Also checked and NOT applicable: their finding that 11/68 shipped DuckDBs already
+contain the graded tables -- none of the 5 e-commerce fixtures do.
 
 ---
 
