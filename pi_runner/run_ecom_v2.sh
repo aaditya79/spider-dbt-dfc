@@ -11,6 +11,7 @@
 #   tool name -> Bedrock 400, network drop, tool-call cap) up to that many extra
 #   times; a cell that still ends HARNESS_ERROR keeps score=null and is reported.
 #   MAX_TOOL_CALLS=0 (default) passes --max-tool-calls to run_task.py.
+#   EXP_PREFIX=ecom-v3 names the experiment series (default ecom-v2).
 #   RUN_TASK_EXTRA="--no-pi-extension" (or "--tools read,bash,write,grep,find,ls",
 #   "--scaffold minimal", ...) appends arbitrary run_task.py args, for A/B arms.
 #
@@ -51,7 +52,7 @@ sys.exit(0 if r.get('score') is not None else 1)" 2>/dev/null
 echo "===== ecom-v2 $KEY  ${#TASKS[@]} tasks x $SEEDS seeds  $(date +%H:%M:%S) ====="
 for SEED in $(seq 1 "$SEEDS"); do
   for TASK in "${TASKS[@]}"; do
-    EXP="ecom-v2-${KEY}-${TASK}-r${SEED}"
+    EXP="${EXP_PREFIX:-ecom-v2}-${KEY}-${TASK}-r${SEED}"
     OUT="$RUNS/${EXP}.stdout.json"
     if done_already "$OUT"; then echo "  SKIP (done)  $EXP"; continue; fi
     for ATTEMPT in $(seq 0 "$HARNESS_RETRIES"); do
