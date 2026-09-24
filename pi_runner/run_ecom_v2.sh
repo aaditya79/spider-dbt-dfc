@@ -38,7 +38,11 @@ case "$KEY" in
   qwen)  MODEL="arn:aws:bedrock:us-east-2:920736616554:application-inference-profile/xcoflhsehr9h"
          REGION="us-east-2" ;;
   haiku) MODEL="us.anthropic.claude-haiku-4-5-20251001-v1:0"; REGION="us-east-1" ;;
-  opus)  MODEL="us.anthropic.claude-opus-4-8";                REGION="us-east-1" ;;
+  # Opus goes through a tagged application inference profile for the same reason
+  # Qwen does: RequiredTagsPolicy explicitly denies the untagged system profile
+  # us.anthropic.claude-opus-4-8 (AccessDenied on InvokeModelWithResponseStream).
+  opus)  MODEL="arn:aws:bedrock:us-east-1:920736616554:application-inference-profile/t65nyo4xtz4t"
+         REGION="us-east-1" ;;
   *) echo "unknown model key: $KEY"; exit 2 ;;
 esac
 

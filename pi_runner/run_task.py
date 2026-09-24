@@ -222,6 +222,27 @@ The only tools are exactly these nine, by these exact names: bash, read, ls, fin
 8. Do not use networking (the one exception is `dbt deps`, which fetches packages), privilege escalation, destructive system commands, or interactive editors.
 9. Never copy files from dbt_packages/ into models/. A .sql file containing `{% macro %}` belongs in macros/, never in models/ (dbt would run it as a model and fail). If an upstream package model errors but your target model does not depend on it, write and build your target first; fix upstream only if the target itself needs it.
 10. The YAML is the spec, not just a name list. Before terminate: `describe` the target with duckdb_sql and confirm every column declared for it in the YAML is present with that exact name; if the YAML declares a `unique` or `unique_combination_of_columns` test, run `select <key>, count(*) from <model> group by <key> having count(*) > 1` and expect no rows; if the description says each record represents a day, build on the project's calendar spine so every day has a row, not only days with activity.
+
+# BEFORE YOU CALL terminate #
+
+Every run that completed this kind of task correctly did these four things, in this
+order, after `dbt run` succeeded. Runs that skipped them reported success on a table
+that was wrong. Do all four, using duckdb_sql, and fix the model if any of them
+disagrees with the YAML:
+
+1. `describe <your_model>` -- compare the column list against the columns the YAML
+   declares for that model. Every declared name must be present.
+2. `select count(*) from <your_model>` -- is the row count the grain the YAML
+   describes? A model whose description says each record is a day must have one row
+   per day per entity, not one row per day that happened to have activity.
+3. `select <key columns>, count(*) from <your_model> group by <key columns> having
+   count(*) > 1` -- the YAML's `unique` or `unique_combination_of_columns` test names
+   the key. This query must return no rows. If it returns rows, a join is fanning out.
+4. Sample the rows: `select * from <your_model> limit 5`, and for any column you
+   derived (an amount, a rate, a running total), check the values are the sign and
+   the magnitude the source data implies.
+
+Only when all four agree with the YAML should you call terminate.
 """
 
 TASK_TEMPLATE = """\
@@ -276,7 +297,11 @@ SCAFFOLDS = ("minimal", "dbt")
 #   5: 2026-09-21 rule 10: verify declared columns / unique key / daily grain
 #      against the YAML before terminate (all four v4 cells built the right
 #      table, went green on dbt run, and terminated with the wrong shape)
-SCAFFOLD_VERSION = 5
+#   6: 2026-09-24 "BEFORE YOU CALL terminate" blueprint, transcribed from what
+#      the 5 passing cells did and the 11 failing ones skipped (describe 100% vs
+#      64%, count(*) 100% vs 55%, distinct-key check 0% in both). Gold-free and
+#      task-agnostic: it names properties to check, never a value or a table name.
+SCAFFOLD_VERSION = 6
 
 
 def build_prompts(scaffold, instance_id, instruction):
