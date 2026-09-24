@@ -98,12 +98,12 @@ def _q(con, sql):
 
 
 def _table_columns(con, name):
-    rows = _q(con, f"select table_schema, table_name from information_schema.tables where table_name = '{name}'")
+    rows = _q(con, f"select table_schema, table_name from information_schema.tables where lower(table_name) = lower('{name}')")
     if not rows:
         return None, None
-    schema, _ = rows[0]
-    cols = [r[0] for r in _q(con, f'select column_name from information_schema.columns where table_schema = \'{schema}\' and table_name = \'{name}\' order by ordinal_position')]
-    return f'"{schema}"."{name}"', cols
+    schema, actual = rows[0]
+    cols = [r[0] for r in _q(con, f'select column_name from information_schema.columns where table_schema = \'{schema}\' and table_name = \'{actual}\' order by ordinal_position')]
+    return f'"{schema}"."{actual}"', cols
 
 
 def _spine_days(con):
@@ -182,13 +182,18 @@ def check_shape(produced_db_path):
             if qname is None:
                 continue  # reported by _presence_violations
             checked += 1
-            missing = [c for c in spec["columns"] if c not in cols]
+            # DuckDB identifiers are case-insensitive and the scorer compares by
+            # value, so CHARGE_ID satisfies a declared charge_id. Comparing exactly
+            # reported 4 phantom "missing" columns on recharge001-r2 and burned all
+            # 4 of its retry rounds.
+            have = {c.lower() for c in cols}
+            missing = [c for c in spec["columns"] if c.lower() not in have]
             if missing:
                 violations.append({"table": name, "kind": "columns", "missing": missing,
                                    "why": f"`{name}` lacks {len(missing)} of its {len(spec['columns'])} declared columns: {', '.join(missing)}"})
             n_rows = _q(con, f"select count(*) from {qname}")[0][0]
             for key in spec["keys"]:
-                if any(k not in cols for k in key):
+                if any(k.lower() not in have for k in key):
                     continue  # reported under `columns` already
                 klist = ", ".join(f'"{k}"' for k in key)
                 dups = _q(con, f"select count(*) from (select {klist} from {qname} group by {klist} having count(*) > 1)")[0][0]
@@ -196,7 +201,7 @@ def check_shape(produced_db_path):
                     violations.append({"table": name, "kind": "key_duplicates", "key": key, "n": dups,
                                        "why": f"`{name}` violates its declared unique key ({', '.join(key)}): {dups} key value(s) appear more than once across {n_rows} rows"})
             dense = (not spec["keys"]) or any(len(k) <= 2 and "date_day" in k for k in spec["keys"])
-            if dense and "date_day" in spec["columns"] and "date_day" in cols and spine_n:
+            if dense and "date_day" in {c.lower() for c in spec["columns"]} and "date_day" in have and spine_n:
                 days = _q(con, f'select count(distinct "date_day") from {qname}')[0][0]
                 if days < MIN_SPINE_COVERAGE * spine_n:
                     violations.append({"table": name, "kind": "grain", "days": days, "spine_days": spine_n,

@@ -1,4 +1,4 @@
-# Harness fixes, 2026-09-17 / 18 / 21 / 24
+# Harness fixes, 2026-09-17 / 18 / 21 / 24 (two rounds)
 
 Fixes for the problems surfaced by the first `spider_pi_2.0` Qwen batch
 (`runs/pi/ecom-v2-qwen-*`, 15 cells, 2026-09-16). Each item says what was wrong,
@@ -445,6 +445,74 @@ while gold was frozen at 2024-09-07 with 2077 rows. ecom-v4 r3 built both target
 correctly, passed all three policies on the first check, and still scored 0. Pass
 rates should exclude it rather than count an unreachable 0. Same class as the
 "no gold database" / "gold filename differs" defects the reference repo lists.
+
+## 17. Three checker bugs of mine that cost cells (2026-09-24)
+
+**17a. `shape` compared column names case-sensitively.** recharge001-r2 built
+`CHARGE_ID`/`CUSTOMER_ID`/`ADDRESS_ID`/`TITLE` (inherited from the source columns).
+DuckDB identifiers are case-insensitive and the scorer compares by value -- it
+matched every column except `amount` -- but `shape` reported 4 phantom missing
+columns and burned all 4 retry rounds. Now compares casefolded, and resolves the
+table name case-insensitively too. Verified: that database now passes `shape`.
+
+**17b. `namegate` flagged legitimate helper models.** recharge002-r2 wrote 17
+`stg_recharge__*` models to work around the fixture's `order_data` blocker;
+namegate called them "undeclared names" and told the agent to stop doing the one
+thing that unblocks the project. `HELPER_PREFIXES = stg_/int_/tmp_/base_` are now
+exempt. Verified: that database passes; genuinely invented target names still fire.
+
+**17c. The amount message mis-diagnosed a sign error.** recharge001-r1 derived
+`amount` correctly and only inverted the sign (found -0.96, expected 0.96), but the
+message asserted it had used "the raw discount value". The agent checked its
+derivation, found it already correct, changed nothing, and got the identical message
+four rounds running. `dfc_retry_message` now detects magnitude-equal/sign-opposite
+and leads with "the amount values have the wrong SIGN".
+
+## 18. Steering that does not land now stops (2026-09-24)
+
+`--dfc-repeat-limit` (default 2): after two IDENTICAL violation messages in a row the
+loop stops and the run is scored, recording `steering_stalled` on the event. Three
+ecom-v5 cells spent all four rounds on an unchanged message.
+
+`--max-tool-calls` is also enforced at RUN level inside the DFC loop, not only per
+round: recharge002-r2 reached 211 calls under a cap of 150 because each retry round
+got a fresh budget. Records `budget_exhausted`.
+
+## 19. DFC policy `values` (2026-09-24)
+
+`dfc/spider_agent/agent/dfc_check_values.py`, `--dfc-policy values`. Gold-free
+invariants on a table that exists, each from an observed ecom-v5 failure:
+
+- `null_key` -- a declared `*_id` NULL on every row (shopify002-r1's `price_rule_id`:
+  the discount_code -> price_rule join never matched). Restricted to identifiers
+  because gold itself carries all-NULL MEASURE columns (`allocation_limit`), so
+  emptiness alone proves nothing.
+- `negative_running` -- a cumulative "to date"/months metric below zero. The
+  invariant proposed in ecommerce_baseline_analysis.md 5.2.
+- `daily_step` -- such a metric jumping >= 0.5 between consecutive days.
+  recharge002-r3 emitted whole integers (2,2,2,2; max 4) where gold advances ~1/30
+  per day (0.03, 0.07, 0.10; max 2.03) -- it counted calendar months instead of
+  measuring elapsed time.
+
+Validated both ways: fires on shopify002-r1, recharge002-r3 and the v1 Haiku
+negative-months run; passes on gold shopify002 / recharge002 / recharge001 and on
+all four passing ecom-v5 cells.
+
+## 20. The two benchmark defects, settled (2026-09-24)
+
+**shopify001 is unpassable and cannot be fixed.** `models/utils/shopify__calendar.sql`
+ships complete (not a target) and spines to `end_date="current_date"`. Gold was built
+when that was 2024-09-07 (2077 rows); the same model yields 2820/2822/2823 rows on
+Sep 21/23/24 and gains one row per day. ecom-v5 r1 and r2 both built
+`shopify__products` exactly right and passed every policy. Excluded via
+`KNOWN_DEFECTS`, not counted as a model failure.
+
+**holistic is under-specified, not impossible.** Its YAML declares 28 columns; gold
+has 47, and the scorer checks 4 `klaviyo_sum_revenue_*` that the YAML never mentions.
+They are NOT unreachable: the shipped `int__daily_klaviyo_user_metrics.sql` generates
+`sum_revenue_<metric>` columns from `var('klaviyo__sum_revenue_metrics')`, so the
+target drops columns its own upstream produces. A dropped-upstream-column check is
+the natural next policy; not built yet.
 
 ---
 

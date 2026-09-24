@@ -85,6 +85,17 @@ def _declared_models(project_dir):
     return out
 
 
+# Helper models the agent legitimately writes to get a broken fixture to compile
+# (recharge002's `order_data` blocker forces stg_recharge__* rebuilds). Flagging
+# them as "undeclared names" told the agent to stop doing the one thing that
+# unblocks the project, and it then ran out of budget with nothing built.
+HELPER_PREFIXES = ("stg_", "int_", "tmp_", "base_")
+
+
+def _is_helper(name):
+    return name.lower().startswith(HELPER_PREFIXES)
+
+
 def _sql_models(project_dir):
     """Model names that have a .sql file under models/."""
     return {os.path.basename(p)[:-4]
@@ -138,7 +149,8 @@ def check_namegate(produced_db_path):
     candidates = sorted(spec_declared - fixture_sql)          # declared, shipped without SQL
     agent_created = run_sql - fixture_sql                      # models the agent added
     built_new = sorted(m for m in agent_created if m in materialized)
-    offenders = sorted(m for m in built_new if m not in spec_declared)
+    offenders = sorted(m for m in built_new
+                       if m not in spec_declared and not _is_helper(m))
     built_candidates = sorted(c for c in candidates if c in materialized)
     unmet = sorted(c for c in candidates if c not in materialized)
 

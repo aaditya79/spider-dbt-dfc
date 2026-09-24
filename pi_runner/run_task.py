@@ -291,7 +291,7 @@ def build_prompts(scaffold, instance_id, instruction):
 
 # ------------------------------------------------------------- DFC policy ----
 
-DFC_POLICIES = ("recharge001", "idtype", "enum", "namegate", "shape")
+DFC_POLICIES = ("recharge001", "idtype", "enum", "namegate", "shape", "values")
 
 
 def _import_agent_module(modname):
@@ -362,6 +362,10 @@ def _load_dfc_checker(name):
       namegate    -- a model the agent creates must carry a name declared in the
                      project's schema YAML (task-agnostic; derives the spec from the
                      pristine fixture, never from gold).
+      values      -- gold-free value invariants on a built target: a declared *_id
+                     that is NULL on every row (an unjoined key), a cumulative
+                     "to date" metric that goes negative, or one that jumps by
+                     whole units between consecutive days.
       shape       -- a built target must have every column its YAML declares, honour
                      the YAML's uniqueness test, and (for dense daily models) cover the
                      project's calendar spine. Task-agnostic, gold-free; only checks
@@ -384,6 +388,9 @@ def _load_dfc_checker(name):
     if name == "shape":
         mod = _import_agent_module("dfc_check_shape")
         return mod.check_shape, mod.retry_message
+    if name == "values":
+        mod = _import_agent_module("dfc_check_values")
+        return mod.check_values, mod.retry_message
     mod = _import_agent_module("dfc_check_enum")
     return mod.check_recharge001_line_item_type, mod.retry_message
 
@@ -468,13 +475,33 @@ def dfc_retry_message(verdict):
         f"expected {v['amount_expected']}"
         for v in verdict["violations"]
     )
+    # Lead with the observed-vs-expected values, and name a pure sign error when
+    # the magnitudes already agree. The original text asserted the model had used
+    # "the raw discount value"; ecom-v5 recharge001-r1 had derived the amount
+    # correctly and only inverted the sign, so it read the diagnosis, found its
+    # derivation already right, changed nothing, and got the identical message
+    # four rounds running.
+    sign_only = all(
+        abs(abs(float(v["amount_found"])) - abs(float(v["amount_expected"]))) < 1e-6
+        and float(v["amount_found"]) * float(v["amount_expected"]) < 0
+        for v in verdict["violations"]
+    ) if verdict["violations"] else False
+    if sign_only:
+        return (
+            "DFC policy violation on recharge__charge_line_item_history: the `amount` values "
+            f"have the wrong SIGN. {rows}. The magnitudes are already correct, so the derivation "
+            "is right and only the sign is inverted: this table stores the discount amount as a "
+            "POSITIVE number, not as a negative adjustment. Remove the negation (or wrap the "
+            "expression in abs()) for the discount rows, rebuild with dbt run, and confirm with "
+            "duckdb_sql that the discount rows now show positive amounts."
+        )
     return (
-        "DFC policy violation on recharge__charge_line_item_history: the `amount` for "
-        "percentage discounts must be derived as round(value/100 * total_line_items_price, 2), "
-        "not the raw discount value. The following rows have the raw value where the derived "
-        f"amount is expected -> {rows}. Revise the model SQL (the discount CTE must convert "
-        "percentage discounts using the charge's total_line_items_price) and rebuild with dbt run, "
-        "then confirm the rebuilt table has the corrected amounts."
+        "DFC policy violation on recharge__charge_line_item_history: the `amount` values do not "
+        f"match what the invariant requires. {rows}. For percentage discounts the amount must be "
+        "derived as round(value/100 * total_line_items_price, 2) from the charge's "
+        "total_line_items_price, not taken as the raw discount value. Compare each row above "
+        "against your discount CTE, revise the model SQL, rebuild with dbt run, then confirm the "
+        "rebuilt table has the corrected amounts."
     )
 
 
@@ -885,6 +912,9 @@ def main():
                          "(e.g. 'namegate,recharge001': the discount checker cannot "
                          "evaluate a target table that was never built).")
     ap.add_argument("--dfc-max-retries", type=int, default=3)
+    ap.add_argument("--dfc-repeat-limit", type=int, default=2,
+                    help="stop retrying after this many IDENTICAL violation messages "
+                         "in a row (0 = never stop early)")
     ap.add_argument("--harness-nudge", default="off", choices=list(NUDGE_MODES),
                     help="re-surface dbt's OWN warnings/errors more saliently by putting "
                          "a `dbt` shim on the agent's PATH. 'generic' appends a fixed "
@@ -963,6 +993,8 @@ def main():
 
         # --- DFC loop: check -> steer -> recheck ------------------------
         if checker and rounds[-1]["settled"]:
+            last_msg = None
+            repeats = 0
             for attempt in range(1, args.dfc_max_retries + 1):
                 try:
                     verdict = checker(produced_db)
@@ -983,6 +1015,27 @@ def main():
                     break
 
                 msg = retry_message(verdict)
+                # An unchanged violation means the last retry taught the agent
+                # nothing: recharge001-r1 got the same amount message four times
+                # and holistic-r1 the same column list four times. Stop after the
+                # second identical message and let the run be scored.
+                repeats = repeats + 1 if msg == last_msg else 0
+                last_msg = msg
+                if repeats >= args.dfc_repeat_limit:
+                    print(f"[runner] DFC STOP: identical violation {repeats + 1}x, "
+                          f"steering is not landing", file=sys.stderr)
+                    dfc_events[-1]["steering_stalled"] = True
+                    break
+                # Run-level tool budget: --max-tool-calls is per round, so a
+                # multi-round cell could still spend 3x it (ecom-v5 recharge002-r2
+                # reached 211 calls under a cap of 150).
+                if args.max_tool_calls:
+                    spent = sum(len(x["tool_calls"]) for x in rounds)
+                    if spent >= args.max_tool_calls:
+                        print(f"[runner] DFC STOP: run-level tool budget reached "
+                              f"({spent}/{args.max_tool_calls})", file=sys.stderr)
+                        dfc_events[-1]["budget_exhausted"] = True
+                        break
                 print(f"[runner] DFC RETRY {attempt}/{args.dfc_max_retries}", file=sys.stderr)
                 r = drive_round(sess, traj, deadline, f"dfc-{attempt}", msg, attempt, args.quiet,
                                 max_tool_calls=args.max_tool_calls,
