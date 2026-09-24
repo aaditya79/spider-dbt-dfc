@@ -12,10 +12,15 @@ YAML as a name lookup, not a spec, and `terminate`s once dbt is green.
 What is checked, per target model (declared in models/**/*.yml but shipped without
 a .sql file in the PRISTINE fixture -- the same definition namegate uses):
 
-  1. present   -- only tables that EXIST are checked. A declared-but-unbuilt
-                  model is namegate's job, and the shopify fixtures declare models
-                  for other tasks that are never meant to be built here, so absence
-                  is not a shape violation and target names are never revealed.
+  1. present   -- at least ONE declared-but-unbuilt model must have a table.
+                  An all-empty database is the dominant
+                  failure mode (9/11 v4 failures, 2026-09-23): `dbt run` goes green
+                  on the project's existing models, the agent terminates, and every
+                  other policy passes vacuously because it has nothing to inspect.
+                  Target names are still never revealed -- the message lists the
+                  declared models that have no table, which the YAML already shows.
+                  Once anything is built this check goes quiet: the fixtures also
+                  declare other tasks' models, indistinguishable without gold.
   2. columns   -- every column the YAML declares exists in the table. Safe to
                   enforce: the scorer matches gold columns by value against any
                   pred column, so extra/renamed columns never cost a pass.
@@ -115,6 +120,33 @@ def _spine_days(con):
     return None, None
 
 
+def _presence_violations(targets, built):
+    """Violations for declared-but-unbuilt models that have no table.
+
+    Two cases, both unambiguous without naming which target is graded:
+      - nothing built at all -> the task has not been started
+      - some built, some not -> the run is partial (shopify001 declares two
+        targets; runs built daily_shop and left products)
+    The fixture also declares models belonging to OTHER tasks, so this cannot
+    demand every declared model; it reports what is missing and lets the agent
+    decide, exactly as namegate does with declared_unbuilt.
+    """
+    missing = [n for n in targets if n not in built]
+    if built or not missing:
+        # Once ANYTHING declared has been built we cannot say more without gold:
+        # these fixtures also declare models belonging to other tasks (shopify002
+        # declares shopify__customers, cohorts, ... which this task never builds),
+        # and they are structurally identical to a genuine second target. Flagging
+        # them fired on all 4 passing v4 cells, so partial-completion is left alone.
+        # Cost: shopify001 runs that build daily_shop and skip products are missed.
+        return []
+    return [{"table": None, "kind": "nothing_built", "missing": missing,
+             "why": ("no model declared in this project's schema YAML has been "
+                     "materialized: " + ", ".join(f"`{m}`" for m in missing) +
+                     ". `dbt run` succeeding on the project's existing models is "
+                     "not the task")}]
+
+
 # -------------------------------------------------------------- the check ----
 
 def check_shape(produced_db_path):
@@ -142,11 +174,13 @@ def check_shape(produced_db_path):
         return {"status": "error", **empty, "targets": targets, "message": f"cannot open produced DuckDB: {e}"}
     try:
         spine_n, spine_name = _spine_days(con)
+        built = [n for n in targets if _table_columns(con, n)[0] is not None]
+        violations.extend(_presence_violations(targets, built))
         for name in targets:
             spec = specs[name]
             qname, cols = _table_columns(con, name)
             if qname is None:
-                continue  # namegate's job; see docstring
+                continue  # reported by _presence_violations
             checked += 1
             missing = [c for c in spec["columns"] if c not in cols]
             if missing:
@@ -171,9 +205,6 @@ def check_shape(produced_db_path):
     finally:
         con.close()
 
-    if checked == 0:
-        return {"status": "pass", "violations": [], "checked_rows": 0, "targets": targets,
-                "message": "no declared-but-unbuilt model has a table yet (nothing to shape-check; namegate covers absence)"}
     status = "violation" if violations else "pass"
     return {"status": status, "violations": violations, "checked_rows": checked, "targets": targets,
             "message": ("; ".join(v["why"] for v in violations) if violations
@@ -185,6 +216,21 @@ def retry_message(verdict):
     lines = []
     for v in verdict["violations"]:
         lines.append(f"- {v['why']}")
+    kinds = {v["kind"] for v in verdict["violations"]}
+    if "nothing_built" in kinds:
+        head = ("DFC policy violation -- the task is not done. Problems found:\n"
+                + "\n".join(lines) + "\n\n"
+                "This project declares models in `models/**/*.yml` and ships without the "
+                "`.sql` file for the ones you are asked to write. Open the schema YAML, read "
+                "each missing model's column list and description, work out which one this "
+                "task is asking for, write `models/<name>.sql` under that exact declared name "
+                "with those columns, and run `dbt run --profiles-dir .`. Then verify with "
+                "duckdb_sql that the table exists and has the declared columns before calling "
+                "terminate.")
+        if not (kinds - {"nothing_built"}):
+            return head
+        lines = [l for l in lines if "has no table" not in l and "materialized" not in l]
+        return head + "\n\nAlso:\n" + "\n".join(lines)
     return (
         "DFC policy violation -- the model you built does not match its declaration in the "
         "project's schema YAML. `dbt run` succeeding is not the finish line; the YAML is the "

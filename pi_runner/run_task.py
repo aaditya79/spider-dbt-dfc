@@ -250,6 +250,17 @@ Safety note: operate only inside the local task sandbox. Do not attempt privileg
 networking, or destructive actions.
 """
 
+# Instances whose gold cannot be reproduced at today's date, whatever the agent
+# does. Recorded in the run record so a pass rate can exclude them instead of
+# silently counting an unreachable 0.
+KNOWN_DEFECTS = {
+    "shopify001": ("shopify__daily_shop is built from the project's calendar spine, "
+                   "which extends to the current date (2822 rows on 2026-09-23 and "
+                   "growing daily), while gold was frozen at 2024-09-07 (2077 rows). "
+                   "A correctly built dense daily model can no longer match gold. "
+                   "ecom-v4 r3 built both targets correctly and still scored 0."),
+}
+
 SCAFFOLDS = ("minimal", "dbt")
 # Bump when DBT_SYSTEM_PROMPT / TASK_TEMPLATE wording changes, so runs stay
 # comparable by (scaffold, scaffold_version) without diffing system_prompt.
@@ -854,8 +865,9 @@ def main():
                          "marked HARNESS_ERROR kind=stall (0 = off). Default 600.")
     ap.add_argument("--max-tool-calls", type=int, default=0,
                     help="abort a round after this many tool calls (0 = no cap; the "
-                         "Spider harness capped at 30 steps). Marks the run HARNESS_ERROR "
-                         "kind=tool_call_cap unless it passed anyway.")
+                         "Spider harness capped at 30 steps). The run is then SCORED on "
+                         "what it built -- the cap is a budget, not a harness failure -- "
+                         "and harness_error records kind=tool_call_cap for the audit.")
     ap.add_argument("--prompt", default=None, help="override the instruction (smoke only)")
     ap.add_argument("--no-scaffold", action="store_true")
     ap.add_argument("--scaffold", default="dbt", choices=list(SCAFFOLDS),
@@ -1008,6 +1020,7 @@ def main():
         "prompt_scaffold": scaffold_used,
         "scaffold": None if (args.prompt is not None or args.no_scaffold) else args.scaffold,
         "scaffold_version": SCAFFOLD_VERSION,
+        "known_defect": KNOWN_DEFECTS.get(args.instance_id),
         "system_prompt": system_prompt,
         "pi_extension": pi_extension,
         "wall_clock_s": round(wall, 1), "pi_exit_code": exit_code,
@@ -1030,7 +1043,12 @@ def main():
         # failure. score=None makes the resumable drivers re-run the cell; a run
         # that passed despite a late harness error keeps its 1 (the work is on
         # disk and the scorer is authoritative).
-        if record["harness_error"] and record["score"] != 1:
+        #
+        # A tool-call cap is NOT such an error: it is a deliberate budget, exactly
+        # like the Spider harness's 30-step limit, and the run is scored on what it
+        # built. Re-running it would only burn the same budget again.
+        he_kind = (record["harness_error"] or {}).get("kind")
+        if record["harness_error"] and he_kind != "tool_call_cap" and record["score"] != 1:
             record["verdict_scorer"] = record["verdict"]
             record["verdict"] = "HARNESS_ERROR"
             record["score"] = None

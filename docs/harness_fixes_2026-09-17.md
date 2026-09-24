@@ -1,4 +1,4 @@
-# Harness fixes, 2026-09-17 / 18 / 21
+# Harness fixes, 2026-09-17 / 18 / 21 / 24
 
 Fixes for the problems surfaced by the first `spider_pi_2.0` Qwen batch
 (`runs/pi/ecom-v2-qwen-*`, 15 cells, 2026-09-16). Each item says what was wrong,
@@ -386,6 +386,65 @@ gitignored `Spider2/` clone; revert with
 
 Also checked and NOT applicable: their finding that 11/68 shipped DuckDBs already
 contain the graded tables -- none of the 5 e-commerce fixtures do.
+
+## 14. `shape` fires on an empty database (2026-09-24)
+
+**Problem.** 9 of 11 ecom-v4 failures materialized NOTHING, and every policy passed
+vacuously -- their messages say so: *"no agent-created model materialized; nothing
+to name-check"*, *"no declared-but-unbuilt model has a table yet"*. recharge001-r3 is
+the clearest case: `dbt run` reported PASS=34 ERROR=0 on the project's EXISTING
+models, the agent called terminate, and no target .sql was ever written. Adding
+`namegate` (the v3 -> v4 change) did not help, because namegate needs a built model
+to name-check. 5 of the 9 self-declared done; 6 burned the 40-min wall clock.
+
+**Fix.** `_presence_violations` in `dfc_check_shape.py`: if NO declared-but-unbuilt
+model has a table, that is a `nothing_built` violation naming the missing models,
+with a retry that says to read the schema YAML, write `models/<name>.sql` under the
+declared name, `dbt run`, and verify with duckdb_sql before terminate.
+
+**Deliberately narrow.** Partial completion (built one target, skipped another) is
+NOT flagged. The fixtures also declare other tasks' models -- shopify002 declares
+`shopify__customers`, `shopify__customer_cohorts`, ... which this task never builds
+-- and they are structurally identical to shopify001's genuine second target. A
+partial-completion check fired on all 4 passing v4 cells, so it was removed. Cost:
+shopify001 runs that build `daily_shop` and skip `products` are still missed.
+
+**Regression.** Over all 15 ecom-v4 databases: 7 `nothing_built` violations, all on
+score=0 cells; 0 on the 4 passes.
+
+**Revert.** Delete `_presence_violations` and its call, and the `nothing_built`
+branch in `retry_message`.
+
+## 15. Driver reads the run record; tool-call cap on by default (2026-09-24)
+
+**Problem A.** The driver read the cell's verdict from its redirected `.stdout.json`,
+which `>` truncates when a retry re-enters. ecom-v4 shopify002-r3 was a complete,
+scored run whose stdout was 0 bytes, so the driver logged `score=ERR`.
+**Fix A.** `record_path()` -- the driver now reads
+`<run_dir>/_pi_meta/<instance>/run_record.json`, which is authoritative.
+
+**Problem B.** 6 of the 9 empty runs hit the 40-min wall clock at 98-215 tool calls.
+**Fix B.** `MAX_TOOL_CALLS=150` is now the driver default (0 disables). A capped
+round sends Pi `abort`, settles, and the DFC loop then steers it.
+
+**Consequence handled.** A capped run must NOT be retried as a harness error -- it is
+a budget, like the Spider harness's 30-step limit. `run_task.py` now excludes
+`kind == "tool_call_cap"` from the HARNESS_ERROR reclassification, so a capped run is
+scored on what it built (verified live: score 0, verdict FAIL, harness_error still
+records the cap for the audit).
+
+**Revert.** `MAX_TOOL_CALLS=0`; restore the `$OUT` reads in the driver; drop the
+`he_kind != "tool_call_cap"` condition.
+
+## 16. shopify001 is unreachable at today's date (2026-09-24)
+
+`KNOWN_DEFECTS` in `run_task.py` records, in every run record (`known_defect`), that
+`shopify__daily_shop` is built from the project's calendar spine -- which extends to
+the current date and grows daily (2820 -> 2822 rows over three days of this work) --
+while gold was frozen at 2024-09-07 with 2077 rows. ecom-v4 r3 built both targets
+correctly, passed all three policies on the first check, and still scored 0. Pass
+rates should exclude it rather than count an unreachable 0. Same class as the
+"no gold database" / "gold filename differs" defects the reference repo lists.
 
 ---
 
